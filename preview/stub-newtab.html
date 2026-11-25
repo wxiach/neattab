@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>neattab</title>
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/32.png">
+<link rel="stylesheet" href="../styles/tokens.css">
+<link rel="stylesheet" href="../styles/controls.css">
+<link rel="stylesheet" href="../styles/newtab.css">
+
+<style>* { transition: none !important; animation: none !important; }</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="coll">
+      <span class="brand-ico" aria-hidden="true">
+        <svg class="brand" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Z"/>
+        </svg>
+      </span>
+      <span class="coll-txt">
+        <span id="coll-name">neattab</span>
+        <span class="coll-sub" id="coll-source">收藏夹栏</span>
+      </span>
+    </span>
+
+    <div class="topbar-right">
+      <div class="search" id="search">
+        <svg class="s-ico" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/>
+        </svg>
+        <input id="q" type="search" placeholder="搜索全部收藏…" autocomplete="off" spellcheck="false" aria-label="搜索全部收藏">
+        <button class="search-clear" id="search-clear" type="button" title="清空搜索（Esc）" aria-label="清空搜索" hidden>
+          <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+            <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/>
+          </svg>
+        </button>
+        <kbd class="slash">/</kbd>
+      </div>
+      <button class="iconbtn top" id="theme-btn" type="button" title="切换浅色 / 深色" aria-label="切换主题">
+        <svg class="i-sun" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/>
+        </svg>
+        <svg class="i-moon" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <div class="side-scroll">
+      <nav class="nav" id="nav" aria-label="收藏夹分组"></nav>
+    </div>
+    <div class="side-foot">
+      <button class="footbtn" id="settings" type="button" title="设置" aria-label="设置">
+        <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"/>
+        </svg>
+        <span class="foot-label">偏好设置</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="sheet-head">
+      <div class="bc" id="bc"></div>
+      <button class="addbtn" id="new-folder" type="button" title="新建分组" aria-label="新建分组">
+        <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/>
+        </svg>
+        <span class="addbtn-txt">新建分组</span>
+      </button>
+    </div>
+
+    <main class="sheet">
+      <div class="rows" id="rows" role="list"></div>
+
+      <div class="empty" id="empty" hidden>
+        <p class="empty-t" id="empty-t">这个分组还没有书签</p>
+        <p class="empty-s" id="empty-s">按 <kbd>/</kbd> 搜索全部收藏</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="overlay" id="settings-overlay" hidden>
+  <div class="dialog settings-dlg" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="sdlg-head">
+      <div class="sdlg-head-l">
+        <h2 class="dlg-title" id="settings-title">偏好设置</h2>
+        <span class="sver" id="set-ver"></span>
+      </div>
+      <button class="iconbtn" id="set-close" type="button" title="关闭（Esc）" aria-label="关闭设置">
+        <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sdlg-body">
+      <section class="sfield">
+        <div class="slabel"><span class="sname">数据来源</span></div>
+        <div class="scontrol">
+          <div class="select-wrap">
+            <select id="set-root" aria-label="数据来源"></select>
+          </div>
+          <p class="shint">新标签页只展示这个目录里的书签，默认读取「收藏夹栏」。</p>
+        </div>
+      </section>
+
+      <section class="sfield">
+        <div class="slabel"><span class="sname">打开方式</span></div>
+        <div class="scontrol">
+          <div class="seg" id="set-openMode" role="group" aria-label="打开方式">
+            <button type="button" data-value="same">当前标签页</button>
+            <button type="button" data-value="tab">新标签页</button>
+          </div>
+          <p class="shint">按住 Ctrl / ⌘ 或中键点击，始终在新标签打开。</p>
+        </div>
+      </section>
+
+      <section class="sfield">
+        <div class="slabel"><span class="sname">外观</span></div>
+        <div class="scontrol">
+          <div class="seg" id="set-theme" role="group" aria-label="外观">
+            <button type="button" data-value="auto">跟随系统</button>
+            <button type="button" data-value="light">浅色</button>
+            <button type="button" data-value="dark">深色</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sfield">
+        <div class="slabel"><span class="sname">字体</span></div>
+        <div class="scontrol">
+          <div class="font-picker" id="font-picker">
+            <button class="font-trigger" id="font-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="选择系统字体">
+              <span class="font-cur" id="font-cur">系统默认</span>
+              <span class="font-caret" aria-hidden="true"></span>
+            </button>
+            <div class="font-panel" id="font-panel" hidden>
+              <input class="font-search" id="font-search" type="search" placeholder="搜索本机字体…" autocomplete="off" spellcheck="false" aria-label="搜索本机字体">
+              <div class="font-list" id="font-list" role="listbox" aria-label="本机系统字体"></div>
+            </div>
+          </div>
+          <p class="shint">直接读取本机已安装字体，支持搜索，切换后实时预览。</p>
+        </div>
+      </section>
+
+      <section class="sfield">
+        <div class="slabel"><span class="sname">快捷键</span></div>
+        <div class="scontrol">
+          <dl class="skeys">
+            <div><dt><kbd>/</kbd></dt><dd>聚焦全局搜索</dd></div>
+            <div><dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt><dd>网格内选择</dd></div>
+            <div><dt><kbd>Enter</kbd></dt><dd>打开书签 / 进入分组</dd></div>
+            <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>在新标签打开</dd></div>
+            <div><dt><kbd>Esc</kbd></dt><dd>清空搜索 / 返回上级</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="sfield">
+        <div class="slabel"><span class="sname">权限</span></div>
+        <div class="scontrol">
+          <p class="shint tight">
+            仅申请 <code>bookmarks</code>、<code>storage</code>、<code>favicon</code>、<code>activeTab</code> 与 <code>fontSettings</code>：读写收藏夹（仅显式编辑/保存写入）、存本地偏好与分类样本、读本地图标缓存、点击图标时读取当前页信息以及列出本机系统字体。不读历史、不联网。
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="sdlg-foot">
+      <div class="sdlg-foot-l">
+        <button class="linkbtn" id="set-reset" type="button">恢复默认设置</button>
+        <span class="set-saved" id="set-saved" aria-live="polite"></span>
+      </div>
+      <button class="btn" id="set-done" type="button">完成</button>
+    </div>
+  </div>
+</div>
+
+<script src="tree.js"></script>
+<script src="stub.js"></script>
+<script src="../js/shared.js"></script>
+<script src="../js/newtab-edit.js"></script>
+<script src="../js/newtab-settings.js"></script>
+<script src="../js/newtab.js"></script>
+</body>
+</html>

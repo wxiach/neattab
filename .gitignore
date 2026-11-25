@@ -1,0 +1,16 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Extension packaging
+*.crx
+*.pem
+*.zip
+dist/

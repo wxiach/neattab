@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>neattab · 收藏当前页</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/controls.css">
+<link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+
+<div class="pop" id="pop">
+  <header class="pop-head">
+    <span class="pop-brand">
+      <span class="brand-ico" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Z"/>
+        </svg>
+      </span>
+      <span class="pop-title" id="pop-title">收藏当前页</span>
+    </span>
+    <span class="pop-badge" id="pop-badge" hidden></span>
+  </header>
+
+  <div class="pop-body" id="pop-form">
+    <div class="page-preview">
+      <span class="fv-slot" id="fv-slot"></span>
+      <div class="page-meta">
+        <div class="page-host-row">
+          <span class="page-host" id="page-host"></span>
+          <span class="kind-tag" id="kind-tag" hidden></span>
+        </div>
+        <div class="page-reason" id="page-reason"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="flabel" for="title-input">名称</label>
+      <input class="finput" id="title-input" type="text" autocomplete="off" spellcheck="false" placeholder="书签名称">
+    </div>
+
+    <div class="field">
+      <div class="flabel-row">
+        <label class="flabel" for="folder-select">分组</label>
+        <span class="fhint" id="match-hint"></span>
+      </div>
+      <div class="folder-row">
+        <div class="select-wrap">
+          <select class="fselect" id="folder-select" aria-label="目标分组"></select>
+        </div>
+        <button class="mini-btn" id="new-folder-btn" type="button" title="新建一级分组">+ 新建</button>
+      </div>
+      <div class="new-folder-box" id="new-folder-box" hidden>
+        <input class="finput sm" id="new-folder-name" type="text" autocomplete="off" spellcheck="false" placeholder="输入新分组名称…">
+        <button class="mini-btn primary" id="new-folder-ok" type="button">确定</button>
+        <button class="mini-btn" id="new-folder-cancel" type="button">取消</button>
+      </div>
+      <div class="quick-picks" id="quick-picks" hidden></div>
+    </div>
+
+    <div class="check-group">
+      <label class="fav-check" for="fav-toggle">
+        <input id="fav-toggle" type="checkbox">
+        <svg class="star-ico" width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Z"/>
+        </svg>
+        <span>同时加入「我的收藏」</span>
+      </label>
+
+      <label class="fav-check" id="clean-hash-row" for="clean-hash-toggle" hidden>
+        <input id="clean-hash-toggle" type="checkbox" checked>
+        <span id="clean-hash-label">去掉回复锚点，从开头打开</span>
+      </label>
+    </div>
+
+    <div class="pop-foot">
+      <button class="btn danger-ghost" id="remove-btn" type="button" hidden>移除</button>
+      <div class="foot-right">
+        <button class="btn ghost" id="cancel-btn" type="button">取消</button>
+        <button class="btn" id="save-btn" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pop-msg" id="pop-msg" hidden>
+    <p class="msg-t" id="msg-t"></p>
+    <p class="msg-s" id="msg-s"></p>
+    <div class="msg-actions" id="msg-actions"></div>
+  </div>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/classifier.js"></script>
+<script src="js/popup.js"></script>
+</body>
+</html>

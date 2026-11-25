@@ -1,0 +1,120 @@
+/* NAV — 设计变量与全局基础样式（中性灰画布 + 全局 0px 直角 + 浅/深双色板）。 */
+
+:root {
+  --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "SFMono-Regular", ui-monospace, monospace;
+
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --subtle: #f4f4f5;
+  --ico-bg: #ffffff;
+  --ink: #18181b;
+  --ink2: #52525b;
+  --ink3: #8a8a93;
+  --line: #e4e4e7;
+  --line2: #d4d4d8;
+  --line3: #b8b8c0;
+  --hover: rgba(24, 24, 27, 0.045);
+
+  --blue: #2563eb;
+  --blue-soft: rgba(37, 99, 235, 0.1);
+  --blue-line: rgba(37, 99, 235, 0.36);
+
+  --amber: #d97706;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+
+  --r-xs: 0;
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e0e11;
+  --surface: #17171b;
+  --subtle: #202026;
+  --ico-bg: #26262e;
+  --ink: #f4f4f5;
+  --ink2: #a1a1aa;
+  --ink3: #71717a;
+  --line: #27272d;
+  --line2: #36363f;
+  --line3: #4a4a55;
+  --hover: rgba(255, 255, 255, 0.06);
+
+  --blue: #60a5fa;
+  --blue-soft: rgba(96, 165, 250, 0.15);
+  --blue-line: rgba(96, 165, 250, 0.42);
+
+  --amber: #fbbf24;
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 切换深浅主题时关闭过渡，避免带 transition 的元素滞后闪烁 */
+:root.theme-switching,
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after {
+  transition: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scrollbar-color: var(--line3) transparent;
+}
+
+a {
+  color: inherit;
+}
+
+mark {
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 600;
+  padding: 0 3px;
+  border-radius: 0;
+}
+
+kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ink2);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-xs);
+  padding: 3px 6px;
+  margin: 0 2px;
+  white-space: nowrap;
+  background: var(--surface);
+}
