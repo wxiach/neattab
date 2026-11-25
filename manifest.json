@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "neattab — 书签新标签页",
-  "short_name": "neattab",
+  "name": "NeatTab — 书签导航",
+  "short_name": "NeatTab",
   "version": "0.1.0",
   "description": "把收藏夹栏变成一张高效书签索引页，支持工具栏一键本地分类收藏与本机系统字体；不读历史、不联网。",
   "minimum_chrome_version": "110",
@@ -17,7 +17,7 @@
     "service_worker": "sw.js"
   },
   "action": {
-    "default_title": "neattab — 收藏当前页",
+    "default_title": "NeatTab — 收藏当前页",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/16.png",

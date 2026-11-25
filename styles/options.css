@@ -223,6 +223,51 @@ h1 {
   opacity: 1;
 }
 
+@media (min-width: 2000px) {
+  .topbar {
+    height: 72px;
+  }
+
+  .topbar-in,
+  .opt-main {
+    width: min(1040px, calc(100% - 120px));
+  }
+
+  .opt-head {
+    padding: 28px 34px 20px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  .field {
+    grid-template-columns: 196px minmax(0, 1fr);
+    gap: 30px;
+    padding: 22px 34px;
+  }
+
+  .label .name {
+    font-size: 14px;
+  }
+
+  .hint,
+  .sub {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 2800px) {
+  .topbar {
+    height: 84px;
+  }
+
+  .topbar-in,
+  .opt-main {
+    width: min(1200px, calc(100% - 160px));
+  }
+}
+
 @media (max-width: 760px) {
   .topbar-in,
   .opt-main {

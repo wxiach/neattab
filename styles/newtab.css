@@ -1,5 +1,44 @@
 /* NAV — 新标签页样式：中性灰画布 + 全局 0px 直角 + 零空隙细线网格 + 居中设置弹窗。 */
 
+:root {
+  --topbar-h: 62px;
+  --page-max: 1220px;
+  --page-gutter: 64px;
+  --side-w: 232px;
+  --shell-gap: 28px;
+  --side-pt: 22px;
+  --main-pt: 20px;
+  --head-mb: 14px;
+
+  --brand-sz: 30px;
+  --brand-fs: 13.5px;
+  --search-w: 360px;
+  --search-h: 36px;
+  --top-btn-sz: 32px;
+  --addbtn-h: 32px;
+
+  --nav-h: 34px;
+  --nav-sub-h: 32px;
+
+  --cell-py: 13px;
+  --cell-px: 16px;
+  --cell-gap: 12px;
+  --ico-sz: 32px;
+  --ico-pad: 6px;
+
+  --group-py-t: 14px;
+  --group-py-b: 10px;
+  --group-px: 18px;
+
+  --fs-title: 13px;
+  --fs-sub: 12.5px;
+  --fs-group: 12px;
+  --fs-meta: 11px;
+  --fs-cur: 15px;
+
+  --dlg-settings-w: 560px;
+}
+
 body {
   min-height: 100vh;
 }
@@ -10,7 +49,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  height: 62px;
+  height: var(--topbar-h);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
@@ -18,11 +57,11 @@ body {
 
 .topbar-in,
 .shell {
-  width: min(1220px, 100% - 64px);
+  width: min(var(--page-max), calc(100% - var(--page-gutter)));
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+  gap: var(--shell-gap);
 }
 
 .topbar-in {
@@ -39,8 +78,8 @@ body {
 
 .brand-ico {
   flex: none;
-  width: 30px;
-  height: 30px;
+  width: var(--brand-sz);
+  height: var(--brand-sz);
   background: var(--blue-soft);
   color: var(--blue);
   display: inline-flex;
@@ -56,7 +95,7 @@ body {
 }
 
 #coll-name {
-  font-size: 13.5px;
+  font-size: var(--brand-fs);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.01em;
@@ -66,7 +105,7 @@ body {
 }
 
 .coll-sub {
-  font-size: 11px;
+  font-size: var(--fs-meta);
   color: var(--ink3);
   line-height: 1.2;
   white-space: nowrap;
@@ -86,8 +125,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  width: min(360px, 60%);
+  height: var(--search-h);
+  width: min(var(--search-w), 60%);
   padding: 0 10px 0 12px;
   background: var(--bg);
   border: 1px solid var(--line);
@@ -116,7 +155,7 @@ body {
   background: transparent;
   color: var(--ink);
   font-family: var(--font);
-  font-size: 13px;
+  font-size: var(--fs-title);
   padding: 0;
   outline: none;
 }
@@ -157,7 +196,7 @@ body {
   flex: none;
   margin: 0;
   padding: 2px 6px;
-  font-size: 11px;
+  font-size: var(--fs-meta);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink3);
@@ -180,6 +219,11 @@ body {
   color: var(--ink2);
   cursor: pointer;
   transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.iconbtn.top {
+  width: var(--top-btn-sz);
+  height: var(--top-btn-sz);
 }
 
 .iconbtn:hover {
@@ -205,11 +249,11 @@ body {
 
 .side {
   position: sticky;
-  top: 62px;
-  height: calc(100vh - 62px);
+  top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
   display: flex;
   flex-direction: column;
-  padding: 22px 0 18px;
+  padding: var(--side-pt) 0 18px;
 }
 
 .side-scroll {
@@ -227,7 +271,7 @@ body {
 
 .n-label {
   padding: 0 10px 6px;
-  font-size: 11px;
+  font-size: var(--fs-meta);
   font-weight: 500;
   color: var(--ink3);
 }
@@ -247,9 +291,9 @@ body {
 
 .n-item {
   gap: 9px;
-  height: 34px;
+  height: var(--nav-h);
   padding: 0 10px;
-  font-size: 13px;
+  font-size: var(--fs-title);
   font-weight: 600;
   color: var(--ink);
 }
@@ -257,10 +301,10 @@ body {
 .n-sub {
   position: relative;
   gap: 8px;
-  height: 32px;
+  height: var(--nav-sub-h);
   margin: 2px 0;
   padding: 0 10px 0 32px;
-  font-size: 12.5px;
+  font-size: var(--fs-sub);
   color: var(--ink2);
 }
 
@@ -315,7 +359,7 @@ body {
   padding: 1px 6px;
   background: var(--hover);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-meta);
   font-weight: 400;
   color: var(--ink3);
   font-variant-numeric: tabular-nums;
@@ -332,6 +376,7 @@ body {
 }
 
 .side-foot {
+  flex: none;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
@@ -342,13 +387,13 @@ body {
   align-items: center;
   gap: 8px;
   width: 100%;
-  height: 34px;
+  height: var(--nav-h);
   padding: 0 10px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink2);
   font-family: var(--font);
-  font-size: 12.5px;
+  font-size: var(--fs-sub);
   cursor: pointer;
   transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
@@ -363,7 +408,7 @@ body {
 
 .main {
   min-width: 0;
-  padding: 20px 0 46px;
+  padding: var(--main-pt) 0 46px;
 }
 
 .sheet-head {
@@ -371,8 +416,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 14px;
-  min-height: 32px;
+  margin-bottom: var(--head-mb);
+  min-height: var(--addbtn-h);
 }
 
 .bc {
@@ -380,7 +425,7 @@ body {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--fs-title);
   color: var(--ink3);
   white-space: nowrap;
 }
@@ -396,7 +441,7 @@ body {
   background: transparent;
   color: var(--ink3);
   font-family: var(--font);
-  font-size: 13px;
+  font-size: var(--fs-title);
   cursor: pointer;
   transition: background-color 0.12s ease, color 0.12s ease;
 }
@@ -407,7 +452,7 @@ body {
 }
 
 .bc .cur {
-  font-size: 15px;
+  font-size: var(--fs-cur);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -417,7 +462,7 @@ body {
 
 .bc .hits {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--fs-sub);
   color: var(--ink2);
 }
 
@@ -426,13 +471,13 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
+  height: var(--addbtn-h);
   padding: 0 11px;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink2);
   font-family: var(--font);
-  font-size: 12px;
+  font-size: var(--fs-group);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: border-color 0.12s ease, color 0.12s ease;
@@ -452,6 +497,7 @@ body {
 .sheet {
   background: var(--surface);
   border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -461,7 +507,7 @@ body {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 14px 18px 10px;
+  padding: var(--group-py-t) var(--group-px) var(--group-py-b);
   background: var(--surface);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -472,14 +518,14 @@ body {
 }
 
 .gh-t {
-  font-size: 12px;
+  font-size: var(--fs-group);
   font-weight: 600;
   color: var(--ink2);
 }
 
 .gh-n {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-meta);
   color: var(--ink3);
   font-variant-numeric: tabular-nums;
 }
@@ -487,7 +533,7 @@ body {
 /* 零空隙细线网格：负右/下边距由 .sheet 裁切，避免外框 2px 叠线与残缺底边 */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin-right: -1px;
   margin-bottom: -1px;
@@ -502,9 +548,9 @@ body {
 .cell {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--cell-gap);
   min-width: 0;
-  padding: 13px 16px;
+  padding: var(--cell-py) var(--cell-px);
   border: 0;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -539,13 +585,13 @@ body {
 .fv,
 .f-ico-box {
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: var(--ico-sz);
+  height: var(--ico-sz);
   border: 1px solid var(--line);
 }
 
 .fv {
-  padding: 6px;
+  padding: var(--ico-pad);
   object-fit: contain;
   background: var(--ico-bg);
 }
@@ -562,7 +608,7 @@ body {
 
 .fv-l {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-group);
   font-weight: 600;
 }
 
@@ -575,7 +621,7 @@ body {
 }
 
 .ct {
-  font-size: 13px;
+  font-size: var(--fs-title);
   font-weight: 500;
   color: var(--ink);
   white-space: nowrap;
@@ -585,7 +631,7 @@ body {
 
 .cd {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-meta);
   color: var(--ink3);
   white-space: nowrap;
   overflow: hidden;
@@ -741,8 +787,8 @@ body {
 /* ---------- 偏好设置弹窗 ---------- */
 
 .settings-dlg {
-  width: min(560px, calc(100% - 32px));
-  max-height: min(720px, calc(100vh - 48px));
+  width: min(var(--dlg-settings-w), calc(100% - 32px));
+  max-height: min(760px, calc(100vh - 48px));
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -895,7 +941,220 @@ body {
 
 /* ---------- 响应式与打印 ---------- */
 
+/* 大屏阶梯适配：<= 1999px 完整保持 1220px 收敛原貌；4K 大屏延续约 60% 屏宽的收敛 3 列比例 */
+@media (min-width: 2000px) {
+  :root {
+    --topbar-h: 72px;
+    --page-max: 1520px;
+    --page-gutter: 120px;
+    --side-w: 276px;
+    --shell-gap: 36px;
+    --head-mb: 18px;
+
+    --brand-sz: 36px;
+    --brand-fs: 15.5px;
+    --search-w: 440px;
+    --search-h: 42px;
+    --top-btn-sz: 38px;
+    --addbtn-h: 36px;
+
+    --nav-h: 40px;
+    --nav-sub-h: 36px;
+
+    --cell-py: 17px;
+    --cell-px: 20px;
+    --cell-gap: 15px;
+    --ico-sz: 38px;
+    --ico-pad: 7px;
+
+    --group-py-t: 16px;
+    --group-py-b: 12px;
+    --group-px: 22px;
+
+    --fs-title: 15px;
+    --fs-sub: 14px;
+    --fs-group: 13.5px;
+    --fs-meta: 12.5px;
+    --fs-cur: 18px;
+
+    --dlg-settings-w: 640px;
+  }
+
+  .side {
+    height: auto;
+    max-height: calc(100vh - var(--topbar-h));
+    padding-bottom: 24px;
+  }
+
+  .side-scroll {
+    flex: 0 1 auto;
+  }
+
+  .side-foot {
+    margin-top: 20px;
+    padding-top: 14px;
+  }
+
+  .coll {
+    gap: 12px;
+  }
+
+  .search {
+    gap: 10px;
+    padding: 0 12px 0 14px;
+  }
+
+  .s-ico {
+    width: 16px;
+    height: 16px;
+  }
+
+  .n-div {
+    margin: 15px 6px;
+  }
+
+  .n-label {
+    padding: 0 12px 7px;
+  }
+
+  .n-item,
+  .footbtn {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .n-sub {
+    padding: 0 12px 0 38px;
+  }
+
+  .n-sub.on::before {
+    left: 18px;
+    width: 7px;
+    height: 7px;
+  }
+
+  .n-item .n,
+  .n-sub .n {
+    padding: 2px 7px;
+  }
+
+  .cb {
+    gap: 3px;
+  }
+
+  .addbtn {
+    gap: 7px;
+    padding: 0 14px;
+  }
+
+  .brand-ico svg,
+  .f-ico-box svg,
+  .iconbtn.top svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .n-item .fico,
+  .footbtn svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .cell.folder .go svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (min-width: 2800px) {
+  :root {
+    --topbar-h: 84px;
+    --page-max: 1840px;
+    --page-gutter: 160px;
+    --side-w: 324px;
+    --shell-gap: 44px;
+    --head-mb: 22px;
+
+    --brand-sz: 42px;
+    --brand-fs: 17.5px;
+    --search-w: 540px;
+    --search-h: 48px;
+    --top-btn-sz: 44px;
+    --addbtn-h: 42px;
+
+    --nav-h: 46px;
+    --nav-sub-h: 42px;
+
+    --cell-py: 21px;
+    --cell-px: 25px;
+    --cell-gap: 17px;
+    --ico-sz: 44px;
+    --ico-pad: 9px;
+
+    --group-py-t: 19px;
+    --group-py-b: 14px;
+    --group-px: 26px;
+
+    --fs-title: 17px;
+    --fs-sub: 15.5px;
+    --fs-group: 15px;
+    --fs-meta: 14px;
+    --fs-cur: 21px;
+
+    --dlg-settings-w: 740px;
+  }
+
+  .s-ico {
+    width: 18px;
+    height: 18px;
+  }
+
+  .n-item,
+  .footbtn {
+    gap: 11px;
+    padding: 0 14px;
+  }
+
+  .n-sub {
+    padding: 0 14px 0 44px;
+  }
+
+  .n-sub.on::before {
+    left: 20px;
+    width: 8px;
+    height: 8px;
+  }
+
+  .brand-ico svg,
+  .f-ico-box svg,
+  .iconbtn.top svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .n-item .fico,
+  .footbtn svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .cell.folder .go svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
   .topbar-in {
     display: flex;
     align-items: center;

@@ -117,7 +117,7 @@
 
   function buildRoot(rootNode) {
     state.rootName = (rootNode.title || '收藏夹').trim();
-    els.collSource.textContent = state.rootName;
+    els.collSource.textContent = state.rootId === DEFAULTS.rootId ? '书签导航' : state.rootName;
 
     const tops = [];
     const loose = [];
