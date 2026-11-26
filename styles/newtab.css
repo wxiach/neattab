@@ -37,7 +37,7 @@
   --fs-meta: 11px;
   --fs-cur: 15px;
 
-  --dlg-settings-w: 560px;
+  --dlg-settings-w: 680px;
 }
 
 body {
@@ -970,7 +970,7 @@ body.is-dragging .trash-zone {
 
 .settings-dlg {
   width: min(var(--dlg-settings-w), calc(100% - 32px));
-  max-height: min(760px, calc(100vh - 48px));
+  height: min(490px, calc(100vh - 56px));
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -999,18 +999,71 @@ body.is-dragging .trash-zone {
   color: var(--ink3);
 }
 
-.sdlg-body {
+.sdlg-main {
   flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 152px minmax(0, 1fr);
+}
+
+.sdlg-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+}
+
+.stab {
+  appearance: none;
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink2);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.stab:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.stab.on {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.stab:focus-visible {
+  outline: 2px solid var(--blue-line);
+  outline-offset: -2px;
+}
+
+.sdlg-body {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
+.spanel[hidden] {
+  display: none;
+}
+
 .sfield {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
-  gap: 18px;
-  padding: 16px 22px;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px 22px;
   border-top: 1px solid var(--line);
 }
 
@@ -1156,7 +1209,7 @@ body.is-dragging .trash-zone {
     --fs-meta: 12.5px;
     --fs-cur: 18px;
 
-    --dlg-settings-w: 640px;
+    --dlg-settings-w: 760px;
   }
 
   .side {
@@ -1292,7 +1345,7 @@ body.is-dragging .trash-zone {
     --fs-meta: 14px;
     --fs-cur: 21px;
 
-    --dlg-settings-w: 740px;
+    --dlg-settings-w: 840px;
   }
 
   .s-ico {
@@ -1473,6 +1526,27 @@ body.is-dragging .trash-zone {
 
   .grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sdlg-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sdlg-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stab {
+    width: auto;
+    flex: none;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12.5px;
   }
 
   .sfield {

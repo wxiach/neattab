@@ -153,7 +153,7 @@
       settings.rootId = resolvedRoot;
       if (hasExt && chrome.storage && chrome.storage.local) chrome.storage.local.set({ rootId: resolvedRoot });
     }
-    await fontPicker.load();
+    fontPicker.load();
 
     const m = hasExt && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
     if (m) $('#ver').textContent = `v${m.version}`;

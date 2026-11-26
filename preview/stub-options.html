@@ -38,44 +38,13 @@
     </header>
 
     <main class="opt-main">
+      <div class="opt-head">
+        <h1>设置</h1>
+        <p class="sub">改动即时生效，无需手动保存。</p>
+      </div>
+
+      <h2 class="cat-title">外观与常规</h2>
       <div class="sheet">
-        <div class="opt-head">
-          <h1>设置</h1>
-          <p class="sub">改动即时生效，没有保存按钮。</p>
-        </div>
-
-        <section class="field">
-          <div class="label"><span class="name">数据来源</span></div>
-          <div class="control">
-            <div class="select-wrap">
-              <select id="root" aria-label="数据来源"></select>
-            </div>
-            <p class="hint">新标签页只展示这个目录里的书签。默认读取 Edge 的「收藏夹栏」。</p>
-          </div>
-        </section>
-
-        <section class="field">
-          <div class="label"><span class="name">导入导出</span></div>
-          <div class="control">
-            <div class="io-actions">
-              <button class="btn ghost" id="export-btn" type="button">导出</button>
-              <button class="btn ghost" id="import-btn" type="button">导入</button>
-            </div>
-            <p class="hint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
-          </div>
-        </section>
-
-        <section class="field">
-          <div class="label"><span class="name">打开方式</span></div>
-          <div class="control">
-            <div class="seg" id="openMode" role="group" aria-label="打开方式">
-              <button type="button" data-value="same">当前标签页</button>
-              <button type="button" data-value="tab">新标签页</button>
-            </div>
-            <p class="hint">按住 Ctrl / ⌘ 点击，或中键点击，始终在新标签打开。</p>
-          </div>
-        </section>
-
         <section class="field">
           <div class="label"><span class="name">外观</span></div>
           <div class="control">
@@ -106,21 +75,62 @@
         </section>
 
         <section class="field">
-          <div class="label"><span class="name">键盘</span></div>
+          <div class="label"><span class="name">打开方式</span></div>
+          <div class="control">
+            <div class="seg" id="openMode" role="group" aria-label="打开方式">
+              <button type="button" data-value="same">当前标签页</button>
+              <button type="button" data-value="tab">新标签页</button>
+            </div>
+            <p class="hint">按住 Ctrl / ⌘ 点击，或中键点击，始终在新标签打开。</p>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="cat-title">数据与备份</h2>
+      <div class="sheet">
+        <section class="field">
+          <div class="label"><span class="name">数据来源</span></div>
+          <div class="control">
+            <div class="select-wrap">
+              <select id="root" aria-label="数据来源"></select>
+            </div>
+            <p class="hint">新标签页只展示这个目录里的书签。默认读取 Edge 的「收藏夹栏」。</p>
+          </div>
+        </section>
+
+        <section class="field">
+          <div class="label"><span class="name">导入导出</span></div>
+          <div class="control">
+            <div class="io-actions">
+              <button class="btn ghost" id="export-btn" type="button">导出</button>
+              <button class="btn ghost" id="import-btn" type="button">导入</button>
+            </div>
+            <p class="hint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
+          </div>
+        </section>
+      </div>
+
+      <h2 class="cat-title">快捷键</h2>
+      <div class="sheet">
+        <section class="field">
+          <div class="label"><span class="name">快捷操作</span></div>
           <div class="control">
             <dl class="keys">
               <div><dt><kbd>/</kbd></dt><dd>聚焦全局搜索</dd></div>
               <div><dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt><dd>在网格中移动选择</dd></div>
               <div><dt><kbd>Enter</kbd></dt><dd>打开书签 / 进入分组</dd></div>
               <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>在新标签打开</dd></div>
-              <div><dt><kbd>右键</kbd></dt><dd>编辑书签或分组（名称 / 网址 / 分类）</dd></div>
+              <div><dt><kbd>右键</kbd> / <kbd>F2</kbd></dt><dd>编辑书签或分组（名称 / 网址 / 分类）</dd></div>
               <div><dt><kbd>Esc</kbd></dt><dd>清空搜索 / 返回上级分组</dd></div>
             </dl>
           </div>
         </section>
+      </div>
 
-        <section class="field last">
-          <div class="label"><span class="name">权限</span></div>
+      <h2 class="cat-title">关于与权限</h2>
+      <div class="sheet">
+        <section class="field">
+          <div class="label"><span class="name">权限与隐私</span></div>
           <div class="control">
             <p class="hint tight">
               只申请 <code>bookmarks</code>、<code>storage</code>、<code>favicon</code>、<code>activeTab</code> 与 <code>fontSettings</code>：读写收藏夹（仅显式编辑/收藏写入）、存本地偏好与分类样本、取本地站点图标、点击扩展图标读取当前页信息以及列出本机系统字体。不读历史、不联网。

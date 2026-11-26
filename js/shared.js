@@ -227,10 +227,30 @@
     return currentRootId;
   }
 
-  /** 创建向下悬浮的可搜索本机字体选择器（newtab 弹窗与 options 页共用）。 */
+  /** 创建向下悬浮的可搜索本机字体选择器（虚拟滚动，仅渲染可见行以消除大量字体卡顿）。 */
   function createFontPicker({ picker, trigger, cur, panel, search, list, getValue, onSelect, scrollBox, bottomEl, maxHeight = 192 }) {
-    let entries = [{ value: 'system', name: '系统默认', family: '' }];
+    const ROW_H = 32;
+    const OVERSCAN = 4;
+    let entries = [{ value: 'system', name: '系统默认', family: '', searchKey: '系统默认 system' }];
+    let filtered = entries;
     let loaded = false;
+    let loadingPromise = null;
+    let lastStart = -1;
+    let lastEnd = -1;
+    let rafId = 0;
+
+    let spacer = null;
+    let slice = null;
+
+    const ensureViewport = () => {
+      if (!list) return false;
+      if (spacer && slice && list.contains(spacer)) return true;
+      spacer = el('div', 'font-spacer');
+      slice = el('div', 'font-slice');
+      spacer.append(slice);
+      list.replaceChildren(spacer);
+      return true;
+    };
 
     const labelOf = (val) => {
       const key = val || 'system';
@@ -244,36 +264,46 @@
       if (cur) cur.textContent = labelOf(getValue());
     };
 
-    async function load() {
-      if (loaded) return;
-      const out = [{ value: 'system', name: '系统默认', family: '' }];
-      const hasApi =
-        typeof chrome !== 'undefined' && chrome.fontSettings && typeof chrome.fontSettings.getFontList === 'function';
-      if (hasApi) {
-        try {
-          const raw = await chrome.fontSettings.getFontList();
-          const seen = new Set();
-          const sys = [];
-          for (const f of raw || []) {
-            const id = (f && f.fontId ? f.fontId : '').trim();
-            const name = (f && f.displayName ? f.displayName : id).trim();
-            if (!id || id.startsWith('@') || seen.has(id)) continue;
-            seen.add(id);
-            sys.push({ value: `sys:${id}`, name, family: id });
+    function load() {
+      if (loaded) return Promise.resolve();
+      if (loadingPromise) return loadingPromise;
+      loadingPromise = (async () => {
+        const out = [{ value: 'system', name: '系统默认', family: '', searchKey: '系统默认 system' }];
+        const hasApi =
+          typeof chrome !== 'undefined' && chrome.fontSettings && typeof chrome.fontSettings.getFontList === 'function';
+        if (hasApi) {
+          try {
+            const raw = await chrome.fontSettings.getFontList();
+            const seen = new Set();
+            const sys = [];
+            for (const f of raw || []) {
+              const id = (f && f.fontId ? f.fontId : '').trim();
+              const name = (f && f.displayName ? f.displayName : id).trim();
+              if (!id || id.startsWith('@') || seen.has(id)) continue;
+              seen.add(id);
+              sys.push({
+                value: `sys:${id}`,
+                name,
+                family: id,
+                searchKey: `${name} ${id}`.toLowerCase(),
+              });
+            }
+            const isCjk = (s) => /[\u4e00-\u9fa5]/.test(s);
+            sys.sort((a, b) => {
+              const diff = (isCjk(a.name) ? 0 : 1) - (isCjk(b.name) ? 0 : 1);
+              return diff || a.name.localeCompare(b.name, 'zh-CN');
+            });
+            out.push(...sys);
+          } catch {
+            /* 受限环境仅保留系统默认 */
           }
-          const isCjk = (s) => /[\u4e00-\u9fa5]/.test(s);
-          sys.sort((a, b) => {
-            const diff = (isCjk(a.name) ? 0 : 1) - (isCjk(b.name) ? 0 : 1);
-            return diff || a.name.localeCompare(b.name, 'zh-CN');
-          });
-          out.push(...sys);
-        } catch {
-          /* 受限环境仅保留系统默认 */
         }
-      }
-      entries = out;
-      loaded = true;
-      syncLabel();
+        entries = out;
+        filtered = out;
+        loaded = true;
+        syncLabel();
+      })();
+      return loadingPromise;
     }
 
     function position() {
@@ -288,32 +318,42 @@
       }
       const top = rect.bottom + 4;
       const bottomLimit = bottomEl ? bottomEl.getBoundingClientRect().top - 8 : window.innerHeight - 16;
-      const rowH = 32;
       const rawAvail = Math.min(maxHeight, bottomLimit - top - 35);
-      const snapped = Math.max(rowH * 4, Math.floor(rawAvail / rowH) * rowH);
+      const snapped = Math.max(ROW_H * 4, Math.floor(rawAvail / ROW_H) * ROW_H);
       panel.style.left = `${rect.left}px`;
       panel.style.top = `${top}px`;
       panel.style.width = `${rect.width}px`;
       if (list) list.style.maxHeight = `${snapped}px`;
+      paintVisible(true);
     }
 
-    function render(query = '') {
-      if (!list) return;
-      const q = query.trim().toLowerCase();
-      const active = getValue() || 'system';
-      const rows = q
-        ? entries.filter((f) => f.name.toLowerCase().includes(q) || f.family.toLowerCase().includes(q))
-        : entries;
-
-      if (!rows.length) {
+    function paintVisible(force = false) {
+      if (!list || !panel || panel.hidden) return;
+      if (!filtered.length) {
+        spacer = null;
+        slice = null;
+        lastStart = -1;
+        lastEnd = -1;
         list.replaceChildren(el('div', 'font-empty', '未找到匹配的系统字体'));
         return;
       }
+      ensureViewport();
+      spacer.style.height = `${filtered.length * ROW_H}px`;
+      const viewH = list.clientHeight || maxHeight;
+      const scrollTop = list.scrollTop;
+      const start = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+      const end = Math.min(filtered.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
+      if (!force && start === lastStart && end === lastEnd) return;
+      lastStart = start;
+      lastEnd = end;
 
+      const active = getValue() || 'system';
       const frag = document.createDocumentFragment();
-      for (const f of rows) {
+      for (let i = start; i < end; i += 1) {
+        const f = filtered[i];
         const btn = el('button', 'font-opt');
         btn.type = 'button';
+        btn.dataset.val = f.value;
         btn.setAttribute('role', 'option');
         const on = f.value === active;
         btn.setAttribute('aria-selected', String(on));
@@ -324,14 +364,19 @@
         }
         btn.append(el('span', 'font-opt-name', f.name));
         if (on) btn.append(el('span', 'font-opt-mark', '✓'));
-        btn.addEventListener('click', () => {
-          onSelect(f.value);
-          syncLabel();
-          close();
-        });
         frag.append(btn);
       }
-      list.replaceChildren(frag);
+      slice.style.transform = `translateY(${start * ROW_H}px)`;
+      slice.replaceChildren(frag);
+    }
+
+    function applyFilter(query = '') {
+      const q = query.trim().toLowerCase();
+      filtered = q ? entries.filter((f) => f.searchKey.includes(q)) : entries;
+      lastStart = -1;
+      lastEnd = -1;
+      if (list) list.scrollTop = 0;
+      paintVisible(true);
     }
 
     const isOpen = () => !!panel && !panel.hidden;
@@ -342,13 +387,20 @@
       panel.hidden = false;
       trigger.setAttribute('aria-expanded', 'true');
       if (search) search.value = '';
-      render('');
+      filtered = entries;
+      lastStart = -1;
+      lastEnd = -1;
       position();
-      const activeOpt = list && list.querySelector('.font-opt.on');
-      if (activeOpt && list) {
-        const rowH = 32;
-        const visibleRows = Math.max(1, Math.round(list.clientHeight / rowH));
-        list.scrollTop = Math.max(0, activeOpt.offsetTop - Math.floor((visibleRows - 1) / 2) * rowH);
+      if (list) {
+        const active = getValue() || 'system';
+        const activeIdx = filtered.findIndex((f) => f.value === active);
+        if (activeIdx >= 0) {
+          const visibleRows = Math.max(1, Math.round((list.clientHeight || maxHeight) / ROW_H));
+          list.scrollTop = Math.max(0, (activeIdx - Math.floor((visibleRows - 1) / 2)) * ROW_H);
+        } else {
+          list.scrollTop = 0;
+        }
+        paintVisible(true);
       }
       if (search) search.focus();
     }
@@ -362,11 +414,32 @@
       }
     }
 
+    if (list) {
+      list.addEventListener('click', (e) => {
+        const btn = e.target.closest('.font-opt');
+        if (!btn || !btn.dataset.val) return;
+        onSelect(btn.dataset.val);
+        syncLabel();
+        close();
+      });
+      list.addEventListener(
+        'scroll',
+        () => {
+          if (rafId) return;
+          rafId = requestAnimationFrame(() => {
+            rafId = 0;
+            paintVisible(false);
+          });
+        },
+        { passive: true },
+      );
+    }
+
     if (trigger) {
       trigger.addEventListener('click', () => (isOpen() ? close() : open()));
     }
     if (search) {
-      search.addEventListener('input', () => render(search.value));
+      search.addEventListener('input', () => applyFilter(search.value));
       search.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           e.preventDefault();

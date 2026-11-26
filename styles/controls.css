@@ -251,6 +251,19 @@
   scrollbar-width: thin;
 }
 
+.font-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.font-slice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+}
+
 .font-opt {
   display: flex;
   align-items: center;

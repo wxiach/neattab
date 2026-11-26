@@ -11,6 +11,8 @@
     const triggerBtn = $('#settings');
     const closeBtn = $('#set-close');
     const doneBtn = $('#set-done');
+    const tabsNav = $('#set-tabs');
+    const bodyEl = $('#set-body');
     const rootSel = $('#set-root');
     const exportBtn = $('#set-export');
     const importBtn = $('#set-import');
@@ -61,6 +63,27 @@
       }
     }
 
+    function switchTab(name) {
+      if (!tabsNav || !bodyEl) return;
+      fontPicker.close();
+      tabsNav.querySelectorAll('.stab').forEach((btn) => {
+        const on = btn.dataset.tab === name;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-selected', String(on));
+      });
+      bodyEl.querySelectorAll('.spanel').forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== name;
+      });
+      bodyEl.scrollTop = 0;
+    }
+
+    if (tabsNav) {
+      tabsNav.addEventListener('click', (e) => {
+        const btn = e.target.closest('.stab[data-tab]');
+        if (btn) switchTab(btn.dataset.tab);
+      });
+    }
+
     async function open() {
       if (!overlay) {
         location.href = 'options.html';
@@ -68,9 +91,10 @@
       }
       fontPicker.close();
       sync();
-      await Promise.all([populateRootSelect(rootSel, state.rootId), fontPicker.load()]);
       overlay.hidden = false;
       if (closeBtn) closeBtn.focus();
+      populateRootSelect(rootSel, state.rootId);
+      fontPicker.load();
     }
 
     function close() {

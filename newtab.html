@@ -103,89 +103,107 @@
       </button>
     </div>
 
-    <div class="sdlg-body">
-      <section class="sfield">
-        <div class="slabel"><span class="sname">数据来源</span></div>
-        <div class="scontrol">
-          <div class="select-wrap">
-            <select id="set-root" aria-label="数据来源"></select>
-          </div>
-          <p class="shint">新标签页只展示这个目录里的书签，默认读取「收藏夹栏」。</p>
-        </div>
-      </section>
+    <div class="sdlg-main">
+      <nav class="sdlg-tabs" id="set-tabs" role="tablist" aria-label="设置分类">
+        <button class="stab on" type="button" role="tab" aria-selected="true" data-tab="general">外观与常规</button>
+        <button class="stab" type="button" role="tab" aria-selected="false" data-tab="data">数据与备份</button>
+        <button class="stab" type="button" role="tab" aria-selected="false" data-tab="keys">快捷键</button>
+        <button class="stab" type="button" role="tab" aria-selected="false" data-tab="about">关于与权限</button>
+      </nav>
 
-      <section class="sfield">
-        <div class="slabel"><span class="sname">导入导出</span></div>
-        <div class="scontrol">
-          <div class="io-actions">
-            <button class="btn ghost" id="set-export" type="button">导出</button>
-            <button class="btn ghost" id="set-import" type="button">导入</button>
-          </div>
-          <p class="shint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
-        </div>
-      </section>
-
-      <section class="sfield">
-        <div class="slabel"><span class="sname">打开方式</span></div>
-        <div class="scontrol">
-          <div class="seg" id="set-openMode" role="group" aria-label="打开方式">
-            <button type="button" data-value="same">当前标签页</button>
-            <button type="button" data-value="tab">新标签页</button>
-          </div>
-          <p class="shint">按住 Ctrl / ⌘ 或中键点击，始终在新标签打开。</p>
-        </div>
-      </section>
-
-      <section class="sfield">
-        <div class="slabel"><span class="sname">外观</span></div>
-        <div class="scontrol">
-          <div class="seg" id="set-theme" role="group" aria-label="外观">
-            <button type="button" data-value="auto">跟随系统</button>
-            <button type="button" data-value="light">浅色</button>
-            <button type="button" data-value="dark">深色</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="sfield">
-        <div class="slabel"><span class="sname">字体</span></div>
-        <div class="scontrol">
-          <div class="font-picker" id="font-picker">
-            <button class="font-trigger" id="font-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="选择系统字体">
-              <span class="font-cur" id="font-cur">系统默认</span>
-              <span class="font-caret" aria-hidden="true"></span>
-            </button>
-            <div class="font-panel" id="font-panel" hidden>
-              <input class="font-search" id="font-search" type="search" placeholder="搜索本机字体…" autocomplete="off" spellcheck="false" aria-label="搜索本机字体">
-              <div class="font-list" id="font-list" role="listbox" aria-label="本机系统字体"></div>
+      <div class="sdlg-body" id="set-body">
+        <div class="spanel" data-panel="general" role="tabpanel">
+          <section class="sfield">
+            <div class="slabel"><span class="sname">外观</span></div>
+            <div class="scontrol">
+              <div class="seg" id="set-theme" role="group" aria-label="外观">
+                <button type="button" data-value="auto">跟随系统</button>
+                <button type="button" data-value="light">浅色</button>
+                <button type="button" data-value="dark">深色</button>
+              </div>
             </div>
-          </div>
-          <p class="shint">直接读取本机已安装字体，支持搜索，切换后实时预览。</p>
-        </div>
-      </section>
+          </section>
 
-      <section class="sfield">
-        <div class="slabel"><span class="sname">快捷键</span></div>
-        <div class="scontrol">
-          <dl class="skeys">
-            <div><dt><kbd>/</kbd></dt><dd>聚焦全局搜索</dd></div>
-            <div><dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt><dd>网格内选择</dd></div>
-            <div><dt><kbd>Enter</kbd></dt><dd>打开书签 / 进入分组</dd></div>
-            <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>在新标签打开</dd></div>
-            <div><dt><kbd>右键</kbd></dt><dd>编辑书签或分组（名称 / 网址 / 分类）</dd></div>
-            <div><dt><kbd>Esc</kbd></dt><dd>清空搜索 / 返回上级</dd></div>
-          </dl>
-        </div>
-      </section>
+          <section class="sfield">
+            <div class="slabel"><span class="sname">字体</span></div>
+            <div class="scontrol">
+              <div class="font-picker" id="font-picker">
+                <button class="font-trigger" id="font-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="选择系统字体">
+                  <span class="font-cur" id="font-cur">系统默认</span>
+                  <span class="font-caret" aria-hidden="true"></span>
+                </button>
+                <div class="font-panel" id="font-panel" hidden>
+                  <input class="font-search" id="font-search" type="search" placeholder="搜索本机字体…" autocomplete="off" spellcheck="false" aria-label="搜索本机字体">
+                  <div class="font-list" id="font-list" role="listbox" aria-label="本机系统字体"></div>
+                </div>
+              </div>
+              <p class="shint">直接读取本机已安装字体，支持搜索，切换后实时预览。</p>
+            </div>
+          </section>
 
-      <section class="sfield">
-        <div class="slabel"><span class="sname">权限</span></div>
-        <div class="scontrol">
-          <p class="shint tight">
-            仅申请 <code>bookmarks</code>、<code>storage</code>、<code>favicon</code>、<code>activeTab</code> 与 <code>fontSettings</code>：读写收藏夹（仅显式编辑/保存写入）、存本地偏好与分类样本、读本地图标缓存、点击图标时读取当前页信息以及列出本机系统字体。不读历史、不联网。
-          </p>
+          <section class="sfield">
+            <div class="slabel"><span class="sname">打开方式</span></div>
+            <div class="scontrol">
+              <div class="seg" id="set-openMode" role="group" aria-label="打开方式">
+                <button type="button" data-value="same">当前标签页</button>
+                <button type="button" data-value="tab">新标签页</button>
+              </div>
+              <p class="shint">按住 Ctrl / ⌘ 或中键点击，始终在新标签打开。</p>
+            </div>
+          </section>
         </div>
-      </section>
+
+        <div class="spanel" data-panel="data" role="tabpanel" hidden>
+          <section class="sfield">
+            <div class="slabel"><span class="sname">数据来源</span></div>
+            <div class="scontrol">
+              <div class="select-wrap">
+                <select id="set-root" aria-label="数据来源"></select>
+              </div>
+              <p class="shint">新标签页只展示这个目录里的书签，默认读取「收藏夹栏」。</p>
+            </div>
+          </section>
+
+          <section class="sfield">
+            <div class="slabel"><span class="sname">导入导出</span></div>
+            <div class="scontrol">
+              <div class="io-actions">
+                <button class="btn ghost" id="set-export" type="button">导出</button>
+                <button class="btn ghost" id="set-import" type="button">导入</button>
+              </div>
+              <p class="shint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="spanel" data-panel="keys" role="tabpanel" hidden>
+          <section class="sfield">
+            <div class="slabel"><span class="sname">快捷操作</span></div>
+            <div class="scontrol">
+              <dl class="skeys">
+                <div><dt><kbd>/</kbd></dt><dd>聚焦全局搜索</dd></div>
+                <div><dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt><dd>网格内选择</dd></div>
+                <div><dt><kbd>Enter</kbd></dt><dd>打开书签 / 进入分组</dd></div>
+                <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>在新标签打开</dd></div>
+                <div><dt><kbd>右键</kbd> / <kbd>F2</kbd></dt><dd>编辑书签或分组（名称 / 网址 / 分类）</dd></div>
+                <div><dt><kbd>Esc</kbd></dt><dd>清空搜索 / 返回上级</dd></div>
+              </dl>
+            </div>
+          </section>
+        </div>
+
+        <div class="spanel" data-panel="about" role="tabpanel" hidden>
+          <section class="sfield">
+            <div class="slabel"><span class="sname">权限与隐私</span></div>
+            <div class="scontrol">
+              <p class="shint tight">
+                仅申请 <code>bookmarks</code>、<code>storage</code>、<code>favicon</code>、<code>activeTab</code> 与 <code>fontSettings</code>：读写收藏夹（仅显式编辑/保存写入）、存本地偏好与分类样本、读本地图标缓存、点击图标时读取当前页信息以及列出本机系统字体。
+              </p>
+              <p class="shint tight">所有数据与分类运算均完全在本地运行，不读取浏览历史、不发起任何网络请求。</p>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
 
     <div class="sdlg-foot">
