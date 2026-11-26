@@ -445,6 +445,18 @@
     box.append(titleEl, domainEl);
     a.append(box);
 
+    // 在普通分组和搜索结果中标识已加入「我的收藏」的书签；「我的收藏」视图内不重复标星
+    const showFavMark =
+      state.favorites.includes(it.id) &&
+      (state.filter === 'search' || state.view.topId !== '__favorites__');
+    if (showFavMark) {
+      const mark = el('span', 'fav-mark');
+      mark.title = '已加入「我的收藏」';
+      mark.setAttribute('aria-label', '已收藏');
+      mark.append(icon(PHOSPHOR.starFill, 13));
+      a.append(mark);
+    }
+
     a.addEventListener('click', (e) => {
       if (e.ctrlKey || e.metaKey || e.shiftKey) return;
       e.preventDefault();

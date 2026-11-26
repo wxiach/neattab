@@ -651,6 +651,25 @@ body {
   transform: translateX(2px);
 }
 
+.cell .fav-mark {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--amber);
+  opacity: 0.85;
+}
+
+.cell .fav-mark svg {
+  width: var(--fs-title);
+  height: var(--fs-title);
+  display: block;
+}
+
+.cell:hover .fav-mark {
+  opacity: 1;
+}
+
 .cell.dragging {
   opacity: 0.4;
 }
