@@ -181,8 +181,15 @@
     return false;
   }
 
+  function normalizeFolderId(id) {
+    if (!id || id === '__favorites__') return id;
+    let cur = findFolder(id);
+    while (cur && cur.depth > 2) cur = findFolder(cur.parentId);
+    return cur ? cur.id : '';
+  }
+
   function defaultView() {
-    const savedId = state.view && state.view.folderId ? state.view.folderId : '';
+    const savedId = normalizeFolderId(state.view && state.view.folderId ? state.view.folderId : '');
     if (savedId === '__favorites__' || findFolder(savedId)) return { folderId: savedId };
     const first = state.tops.find((t) => t.children.length) || state.tops[0];
     return first ? { folderId: first.id } : { folderId: '__favorites__' };
@@ -254,7 +261,7 @@
       return { rows, group: rows.length > 0, crumb: [{ title: '我的收藏' }] };
     }
 
-    const folder = findFolder(fid) || findFolder((defaultView() || {}).folderId);
+    const folder = findFolder(normalizeFolderId(fid)) || findFolder((defaultView() || {}).folderId);
     if (!folder) return { rows: [], group: false, crumb: [{ title: state.rootName }] };
 
     const crumb = ancestorChain(folder.id).map((f) => ({ title: f.title, folderId: f.id }));
@@ -263,6 +270,24 @@
     if (READING_FOLDER_RE.test(folder.title) && folder.children.length === 0) {
       const rows = buildReadingRows(folder.items);
       return { rows, group: rows.length > 0, crumb };
+    }
+
+    // 二级分类下存在三级目录时，直接按三级分类平铺分段展示（无需再钻取一层）
+    if (folder.depth >= 2 && folder.children.length > 0) {
+      const sections = [];
+      const rows = [];
+      if (folder.items.length > 0) {
+        const items = folder.items.map((it) => ({ ...it, kind: 'link', group: '' }));
+        sections.push({ id: folder.id, title: '直属书签', editable: false, items });
+        rows.push(...items);
+      }
+      for (const c of folder.children) {
+        const items = [];
+        collectFolderItems(c, '', null, items);
+        sections.push({ id: c.id, title: c.title, editable: true, items });
+        rows.push(...items);
+      }
+      return { rows, sections, group: false, crumb };
     }
 
     const rows = [
@@ -370,24 +395,22 @@
 
   function renderNavBranch(folder, activeAncestors) {
     const frag = document.createDocumentFragment();
-    const hasKids = folder.children.length > 0;
-    const open = hasKids && (state.expanded.has(folder.id) || activeAncestors.has(folder.id));
-    const isActive = !state.q && state.view.folderId === folder.id;
+    const isTop = folder.depth === 1;
+    // 左侧目录树最多展示到二级；三级及更深目录通过右侧子分组卡片与面包屑浏览
+    const canExpand = isTop && folder.children.length > 0;
+    const open = canExpand && (state.expanded.has(folder.id) || activeAncestors.has(folder.id));
+    const isActive =
+      !state.q && (state.view.folderId === folder.id || (!isTop && activeAncestors.has(folder.id)));
 
     const row = el('div', 'n-row');
-    const isTop = folder.depth === 1;
     const btn = el('button', isTop ? 'n-item' : 'n-sub');
     btn.type = 'button';
     btn.dataset.folder = folder.id;
-    if (!isTop) btn.style.setProperty('--depth-off', String(folder.depth - 2));
-    if (hasKids) btn.classList.add('has-kids');
     if (open) btn.classList.add('open');
     if (isActive) btn.classList.add('on');
 
     if (isTop) {
       btn.append(icon(open ? PHOSPHOR.folderOpen : PHOSPHOR.folder, 15, 'fico'));
-    } else if (hasKids) {
-      btn.append(icon(PHOSPHOR.caret, 10, 'sub-caret'));
     }
     btn.append(el('span', 'nm', folder.title), el('span', 'n', String(folder.totalCount)));
     row.append(btn);
@@ -629,12 +652,115 @@
     }
   }
 
+  function wireSectionHead(head, sec) {
+    if (!editor.canEdit) return;
+    if (sec.editable) {
+      head.classList.add('editable');
+      head.draggable = true;
+      head.title = '右键编辑分类，拖拽可排序或拖至左下角删除';
+      head.addEventListener('dragstart', (e) => {
+        editor.startDrag(sec.id, true, e, sec.title);
+        head.classList.add('dragging');
+      });
+      head.addEventListener('dragend', () => {
+        editor.endDrag();
+        head.classList.remove('dragging');
+      });
+      head.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        editor.editDialog({ id: sec.id, title: sec.title, isFolder: true });
+      });
+    }
+
+    const resolveHeadDrop = (e, drag) => {
+      if (!drag.id || drag.id === sec.id) return '';
+      if (!drag.isFolder) return 'into';
+      if (!sec.editable || isDescendant(sec.id, drag.id)) return '';
+      const rect = head.getBoundingClientRect();
+      const relY = rect.height ? (e.clientY - rect.top) / rect.height : 0.5;
+      return relY < 0.5 ? 'before' : 'after';
+    };
+
+    head.addEventListener('dragover', (e) => {
+      const mode = resolveHeadDrop(e, editor.getDrag());
+      clearDropClass(head);
+      if (!mode) return;
+      e.preventDefault();
+      head.classList.add(`drop-${mode}`);
+    });
+    head.addEventListener('dragleave', (e) => {
+      if (!head.contains(e.relatedTarget)) clearDropClass(head);
+    });
+    head.addEventListener('drop', (e) => {
+      const drag = editor.getDrag();
+      const mode = resolveHeadDrop(e, drag);
+      clearDropClass(head);
+      if (!mode) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (mode === 'into') editor.doMove(drag.id, sec.id);
+      else editor.doMoveRelative(drag.id, sec.id, mode);
+    });
+  }
+
+  function wireSectionEmpty(slot, sec) {
+    if (!editor.canEdit) return;
+    if (sec.editable) {
+      slot.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        editor.editDialog({ id: sec.id, title: sec.title, isFolder: true });
+      });
+    }
+    slot.addEventListener('dragover', (e) => {
+      const drag = editor.getDrag();
+      if (!drag.id || drag.isFolder) return;
+      e.preventDefault();
+      slot.classList.add('drop-into');
+    });
+    slot.addEventListener('dragleave', () => slot.classList.remove('drop-into'));
+    slot.addEventListener('drop', (e) => {
+      slot.classList.remove('drop-into');
+      const drag = editor.getDrag();
+      if (!drag.id || drag.isFolder) return;
+      e.preventDefault();
+      e.stopPropagation();
+      editor.doMove(drag.id, sec.id);
+    });
+  }
+
   function renderRows(view) {
     // 切换视图时重置键盘选中索引
     state.rows = view.rows;
     state.sel = -1;
 
     const frag = document.createDocumentFragment();
+    if (Array.isArray(view.sections)) {
+      let idx = 0;
+      for (const sec of view.sections) {
+        const head = groupHead(sec.title, sec.items.length);
+        wireSectionHead(head, sec);
+        frag.append(head);
+        if (sec.items.length) {
+          const bucket = el('div', 'grid');
+          for (const it of sec.items) {
+            bucket.append(cellNode(it, idx));
+            idx += 1;
+          }
+          frag.append(bucket);
+        } else {
+          const dropSlot = el('div', 'group-empty', '暂无书签，拖入书签卡片即可归类');
+          wireSectionEmpty(dropSlot, sec);
+          frag.append(dropSlot);
+        }
+      }
+      els.rows.replaceChildren(frag);
+      const empty = view.sections.length === 0;
+      els.empty.hidden = !empty;
+      els.rows.hidden = empty;
+      if (empty) renderEmptyState();
+      return;
+    }
+
     const counts = new Map();
     let linkCount = 0;
     let folderCount = 0;
@@ -708,21 +834,22 @@
       render();
       return;
     }
-    const folder = findFolder(id);
+    const fid = normalizeFolderId(id);
+    const folder = findFolder(fid);
     if (!folder) return;
 
-    const chain = ancestorChain(id);
+    const chain = ancestorChain(fid);
     for (let i = 0; i < chain.length - 1; i += 1) state.expanded.add(chain[i].id);
 
-    const already = state.view.folderId === id;
-    if (toggle && already && folder.children.length) {
-      if (state.expanded.has(id)) state.expanded.delete(id);
-      else state.expanded.add(id);
-    } else if (folder.children.length) {
-      state.expanded.add(id);
+    const already = state.view.folderId === fid;
+    if (toggle && already && folder.depth === 1 && folder.children.length) {
+      if (state.expanded.has(fid)) state.expanded.delete(fid);
+      else state.expanded.add(fid);
+    } else if (folder.depth === 1 && folder.children.length) {
+      state.expanded.add(fid);
     }
 
-    state.view = { folderId: id };
+    state.view = { folderId: fid };
     state.q = '';
     els.q.value = '';
     persistView();
