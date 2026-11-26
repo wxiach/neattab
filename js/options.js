@@ -59,6 +59,44 @@
 
   rootSelect.addEventListener('change', () => save({ rootId: rootSelect.value }));
 
+  const exportBtn = $('#export-btn');
+  const importBtn = $('#import-btn');
+
+  async function readFavorites() {
+    if (!hasExt || !chrome.storage || !chrome.storage.local) return [];
+    try {
+      const res = await chrome.storage.local.get({ favorites: [] });
+      return Array.isArray(res.favorites) ? res.favorites : [];
+    } catch {
+      return [];
+    }
+  }
+
+  if (exportBtn && window.NAV.transfer) {
+    exportBtn.addEventListener('click', async () => {
+      try {
+        await window.NAV.transfer.exportRoot(settings.rootId, await readFavorites());
+        flashSaved('已导出 JSON');
+      } catch {
+        flashSaved('导出失败');
+      }
+    });
+  }
+
+  if (importBtn && window.NAV.transfer) {
+    importBtn.addEventListener('click', () => {
+      fontPicker.close();
+      window.NAV.transfer.openImportDialog({
+        getRootId: () => settings.rootId,
+        getFavorites: readFavorites,
+        onDone: async (res) => {
+          await populateRootSelect(rootSelect, settings.rootId);
+          flashSaved(res && res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
+        },
+      });
+    });
+  }
+
   $('#reset').addEventListener('click', () => {
     const patch = {
       rootId: DEFAULTS.rootId,
@@ -87,6 +125,11 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (window.NAV.transfer && window.NAV.transfer.isDialogOpen()) {
+      e.preventDefault();
+      window.NAV.transfer.closeDialog();
+      return;
+    }
     if (fontPicker.isOpen()) {
       e.preventDefault();
       fontPicker.close(true);

@@ -307,3 +307,128 @@
   outline: 2px solid var(--blue-line);
   outline-offset: 2px;
 }
+
+/* 导入导出按钮组与导入弹窗 */
+
+.io-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.imp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.imp-dlg {
+  width: min(500px, calc(100% - 32px));
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line2);
+  box-shadow: var(--shadow-md);
+}
+
+.imp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.imp-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.imp-file-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.imp-file-input {
+  display: none;
+}
+
+.imp-text {
+  width: 100%;
+  height: 180px;
+  padding: 10px 12px;
+  border: 1px solid var(--line2);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.imp-text:focus {
+  background: var(--surface);
+  border-color: var(--blue-line);
+  box-shadow: 0 0 0 2px var(--blue-soft);
+}
+
+.imp-stat {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  color: var(--ink3);
+}
+
+.imp-stat.ok {
+  border-color: var(--blue-line);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.imp-stat.err {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.imp-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.imp-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--ink2);
+  cursor: pointer;
+}
+
+.imp-radio input {
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.imp-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}

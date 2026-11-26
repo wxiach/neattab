@@ -55,6 +55,17 @@
         </section>
 
         <section class="field">
+          <div class="label"><span class="name">导入导出</span></div>
+          <div class="control">
+            <div class="io-actions">
+              <button class="btn ghost" id="export-btn" type="button">导出</button>
+              <button class="btn ghost" id="import-btn" type="button">导入</button>
+            </div>
+            <p class="hint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
+          </div>
+        </section>
+
+        <section class="field">
           <div class="label"><span class="name">打开方式</span></div>
           <div class="control">
             <div class="seg" id="openMode" role="group" aria-label="打开方式">
@@ -127,6 +138,7 @@
     <script src="tree.js"></script>
 <script src="stub.js"></script>
 <script src="../js/shared.js"></script>
+    <script src="../js/transfer.js"></script>
     <script src="../js/options.js"></script>
   </body>
 </html>

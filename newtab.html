@@ -113,6 +113,17 @@
       </section>
 
       <section class="sfield">
+        <div class="slabel"><span class="sname">导入导出</span></div>
+        <div class="scontrol">
+          <div class="io-actions">
+            <button class="btn ghost" id="set-export" type="button">导出</button>
+            <button class="btn ghost" id="set-import" type="button">导入</button>
+          </div>
+          <p class="shint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
+        </div>
+      </section>
+
+      <section class="sfield">
         <div class="slabel"><span class="sname">打开方式</span></div>
         <div class="scontrol">
           <div class="seg" id="set-openMode" role="group" aria-label="打开方式">
@@ -185,6 +196,7 @@
 </div>
 
 <script src="js/shared.js"></script>
+<script src="js/transfer.js"></script>
 <script src="js/newtab-edit.js"></script>
 <script src="js/newtab-settings.js"></script>
 <script src="js/newtab.js"></script>

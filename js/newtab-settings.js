@@ -12,6 +12,8 @@
     const closeBtn = $('#set-close');
     const doneBtn = $('#set-done');
     const rootSel = $('#set-root');
+    const exportBtn = $('#set-export');
+    const importBtn = $('#set-import');
     const openModeSeg = $('#set-openMode');
     const themeSeg = $('#set-theme');
     const resetBtn = $('#set-reset');
@@ -97,6 +99,35 @@
       });
     }
 
+    if (exportBtn && window.NAV.transfer) {
+      exportBtn.addEventListener('click', async () => {
+        try {
+          await window.NAV.transfer.exportRoot(state.rootId, state.favorites);
+          flash('已导出 JSON');
+        } catch {
+          flash('导出失败');
+        }
+      });
+    }
+
+    if (importBtn && window.NAV.transfer) {
+      importBtn.addEventListener('click', () => {
+        fontPicker.close();
+        window.NAV.transfer.openImportDialog({
+          getRootId: () => state.rootId,
+          getFavorites: () => state.favorites,
+          onDone: (res) => {
+            if (res && res.mode === 'replace') {
+              if (Array.isArray(res.favorites)) state.favorites = res.favorites;
+              if (state.expanded) state.expanded.clear();
+            }
+            loadBookmarks();
+            flash(res && res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
+          },
+        });
+      });
+    }
+
     if (openModeSeg) {
       openModeSeg.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-value]');
@@ -148,7 +179,8 @@
       open,
       close,
       handleEscape: () => {
-        if (fontPicker.isOpen()) fontPicker.close(true);
+        if (window.NAV.transfer && window.NAV.transfer.isDialogOpen()) window.NAV.transfer.closeDialog();
+        else if (fontPicker.isOpen()) fontPicker.close(true);
         else close();
       },
     };
