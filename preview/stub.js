@@ -40,9 +40,21 @@
     return p.children.splice(i, 1)[0];
   };
 
+  const syncMeta = (node, parentId) => {
+    if (parentId !== undefined) node.parentId = parentId;
+    (node.children || []).forEach((c, idx) => {
+      c.index = idx;
+      syncMeta(c, node.id);
+    });
+  };
+  syncMeta(root);
+
   const api = {
     getTree: () => Promise.resolve([root]),
-    get: (id) => Promise.resolve(find(id) ? [find(id)] : []),
+    get: (id) => {
+      syncMeta(root);
+      return Promise.resolve(find(id) ? [find(id)] : []);
+    },
     getSubTree: (id) => Promise.resolve(find(id) ? [find(id)] : []),
     update: (id, patch) => {
       const n = find(id);
@@ -52,24 +64,35 @@
     create: ({ parentId, title, url }) => {
       const p = find(parentId);
       const node = { id: String(++seq), title: title || '', url };
-      if (p) (p.children || (p.children = [])).push(node);
+      if (p) {
+        (p.children || (p.children = [])).push(node);
+        syncMeta(p, p.parentId);
+      }
       return Promise.resolve(node);
     },
     move: (id, { parentId, index }) => {
+      const oldP = parentOf(id);
+      const oldIdx = oldP ? (oldP.children || []).findIndex((c) => c.id === id) : -1;
       const p = find(parentId);
       const node = detach(id);
       if (!p || !node) return Promise.reject(new Error('move failed'));
       p.children = p.children || [];
-      const at = typeof index === 'number' ? Math.min(index, p.children.length) : p.children.length;
+      let at = typeof index === 'number' ? index : p.children.length;
+      // 模拟 Chromium BookmarkModel::Move：同父目录向后移动时先减去移除导致的 1 位偏移
+      if (oldP && oldP.id === p.id && typeof index === 'number' && index > oldIdx) at -= 1;
+      at = Math.max(0, Math.min(at, p.children.length));
       p.children.splice(at, 0, node);
+      syncMeta(root);
       return Promise.resolve(node);
     },
     remove: (id) => {
       detach(id);
+      syncMeta(root);
       return Promise.resolve();
     },
     removeTree: (id) => {
       detach(id);
+      syncMeta(root);
       return Promise.resolve();
     },
     onCreated: noop,

@@ -237,18 +237,19 @@
     }
 
     if (v.topId === '__favorites__') {
+      const favSet = new Set(state.favorites);
       const rows = [];
-      const seen = new Set();
       for (const it of state.loose) {
         rows.push({ ...it, kind: 'link', group: '未分组' });
-        seen.add(it.id);
       }
-      for (const id of state.favorites) {
-        if (seen.has(id)) continue;
-        const hit = state.itemIndex.get(id);
-        if (hit) {
-          rows.push({ ...hit.item, kind: 'link', group: hit.group });
-          seen.add(id);
+      for (const t of state.tops) {
+        for (const it of t.items) {
+          if (favSet.has(it.id)) rows.push({ ...it, kind: 'link', group: t.title });
+        }
+        for (const c of t.children) {
+          for (const it of c.items) {
+            if (favSet.has(it.id)) rows.push({ ...it, kind: 'link', group: t.title });
+          }
         }
       }
       return { rows, group: rows.length > 0, crumb: [{ title: '我的收藏' }] };
@@ -473,9 +474,10 @@
         editor.endDrag();
         a.classList.remove('dragging');
       });
+      const canReorderCard = state.filter !== 'search' && state.view.topId !== '__favorites__';
       a.addEventListener('dragover', (e) => {
         const drag = editor.getDrag();
-        if (!drag.id || drag.isFolder || drag.id === it.id || state.filter === 'search') return;
+        if (!canReorderCard || !drag.id || drag.isFolder || drag.id === it.id) return;
         e.preventDefault();
         a.classList.add('drop-into');
       });
@@ -485,7 +487,7 @@
         e.stopPropagation();
         a.classList.remove('drop-into');
         const drag = editor.getDrag();
-        if (drag.id && !drag.isFolder && drag.id !== it.id && state.filter !== 'search') {
+        if (canReorderCard && drag.id && !drag.isFolder && drag.id !== it.id) {
           editor.doMoveBefore(drag.id, it.id);
         }
       });

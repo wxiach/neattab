@@ -177,8 +177,10 @@
         const [src] = await chrome.bookmarks.get(id);
         const [dst] = await chrome.bookmarks.get(targetId);
         if (!src || !dst) return;
+        // Chromium 的 chrome.bookmarks.move 按移除前坐标计算，同目录向后移时会自动减 1；
+        // 因此向后拖拽时传 dst.index + 1，让拖拽项精准落到目标卡片所在位置（含末尾）
         let index = dst.index;
-        if (src.parentId === dst.parentId && src.index < dst.index) index -= 1;
+        if (src.parentId === dst.parentId && src.index < dst.index) index += 1;
         await chrome.bookmarks.move(id, { parentId: dst.parentId, index });
       } catch {
         /* 忽略 */
