@@ -1,26 +1,28 @@
 'use strict';
 
 /**
- * NAV — 新标签页编辑模块：右键菜单、模态对话框、书签增删改移与拖拽状态。
+ * NAV — 新标签页编辑模块：编辑/新建/删除对话框、书签增删改移与拖拽状态。
  */
 (() => {
-  const { hasExt, el } = window.NAV;
+  const { hasExt, el, findNode } = window.NAV;
 
-  window.NAV.createEditor = ({ state, currentFolderId, loadBookmarks, toggleFavorite }) => {
+  function isHttpUrl(raw) {
+    try {
+      const u = new URL(String(raw || '').trim());
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  window.NAV.createEditor = ({ state, loadBookmarks }) => {
     const canEdit =
       hasExt && !!chrome.bookmarks.update && !!chrome.bookmarks.removeTree && !!chrome.bookmarks.create;
 
-    let menuEl = null;
     let dialogEl = null;
     let dragId = '';
+    let dragTitle = '';
     let dragIsFolder = false;
-
-    const closeMenu = () => {
-      if (menuEl) {
-        menuEl.remove();
-        menuEl = null;
-      }
-    };
 
     const closeDialog = () => {
       if (dialogEl) {
@@ -29,48 +31,12 @@
       }
     };
 
-    async function folderOptions() {
-      const out = [];
-      try {
-        const [root] = await chrome.bookmarks.getTree();
-        const walk = (node, depth) => {
-          for (const c of node.children || []) {
-            if (c.url) continue;
-            out.push({ id: c.id, title: (c.title || '未命名').trim(), depth });
-            walk(c, depth + 1);
-          }
-        };
-        walk(root, 0);
-      } catch {
-        /* 读不到目录就退化为空列表 */
-      }
-      return out;
-    }
-
-    function openMenu(x, y, items) {
-      closeMenu();
-      const menu = el('div', 'menu');
-      menu.setAttribute('role', 'menu');
-      for (const it of items) {
-        if (it === '-') {
-          menu.append(el('div', 'menu-sep'));
-          continue;
-        }
-        const b = el('button', 'menu-item', it.label);
-        b.type = 'button';
-        if (it.danger) b.classList.add('danger');
-        b.addEventListener('click', () => {
-          closeMenu();
-          it.run();
-        });
-        menu.append(b);
-      }
-      document.body.append(menu);
-      const rect = menu.getBoundingClientRect();
-      menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - rect.width - 8))}px`;
-      menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - rect.height - 8))}px`;
-      menuEl = menu;
-    }
+    const resetDrag = () => {
+      dragId = '';
+      dragTitle = '';
+      dragIsFolder = false;
+      if (document.body) document.body.classList.remove('is-dragging');
+    };
 
     function openDialog({ title, desc, body, confirmText = '确定', danger = false, onConfirm, focus }) {
       closeDialog();
@@ -92,8 +58,8 @@
       overlay.append(box);
 
       const submit = () => {
+        if (onConfirm() === false) return;
         closeDialog();
-        onConfirm();
       };
       cancel.addEventListener('click', closeDialog);
       ok.addEventListener('click', submit);
@@ -113,7 +79,9 @@
 
       document.body.append(overlay);
       dialogEl = overlay;
-      (focus || ok).focus();
+      const target = focus || ok;
+      target.focus();
+      if (typeof target.select === 'function') target.select();
     }
 
     async function isInside(targetId, folderId) {
@@ -130,9 +98,41 @@
       return false;
     }
 
-    async function doUpdate(id, title) {
+    async function folderOptions(excludeId) {
+      const out = [];
       try {
-        await chrome.bookmarks.update(id, { title });
+        const [treeRoot] = await chrome.bookmarks.getTree();
+        const root = findNode(treeRoot, state.resolvedRootId || state.rootId) || (treeRoot.children || [])[0];
+        if (!root) return out;
+        out.push({ id: root.id, label: `${(root.title || '收藏夹栏').trim()}（根目录）` });
+        const walk = (node, depth) => {
+          for (const c of node.children || []) {
+            if (c.url || c.id === excludeId) continue;
+            out.push({ id: c.id, label: `${'　'.repeat(depth)}${(c.title || '未命名').trim()}` });
+            walk(c, depth + 1);
+          }
+        };
+        walk(root, 1);
+      } catch {
+        /* 读不到目录就退化为空列表 */
+      }
+      return out;
+    }
+
+    async function doEdit(orig, { title, url, parentId }) {
+      try {
+        const patch = {};
+        if (title !== (orig.title || '')) patch.title = title;
+        if (orig.url && url && url !== orig.url) patch.url = url;
+        if (Object.keys(patch).length) await chrome.bookmarks.update(orig.id, patch);
+
+        if (parentId && parentId !== orig.parentId) {
+          const blocked = !orig.url && (await isInside(parentId, orig.id));
+          if (!blocked) {
+            await chrome.bookmarks.move(orig.id, { parentId });
+            if (state.expanded) state.expanded.add(parentId);
+          }
+        }
       } catch {
         /* 失败则保持原样 */
       }
@@ -158,8 +158,7 @@
       } catch {
         /* 忽略 */
       }
-      dragId = '';
-      dragIsFolder = false;
+      resetDrag();
       await loadBookmarks();
     }
 
@@ -186,8 +185,7 @@
       } catch {
         /* 忽略 */
       }
-      dragId = '';
-      dragIsFolder = false;
+      resetDrag();
       await loadBookmarks();
     }
 
@@ -204,8 +202,7 @@
       } catch {
         /* 忽略 */
       }
-      dragId = '';
-      dragIsFolder = false;
+      resetDrag();
       await loadBookmarks();
     }
 
@@ -226,22 +223,92 @@
       }
     }
 
-    function renameDialog(node) {
-      const input = el('input', 'dlg-input');
-      input.value = node.title;
+    async function editDialog(node) {
+      if (!canEdit || !node || !node.id) return;
+      let fresh = null;
+      try {
+        const [hit] = await chrome.bookmarks.get(node.id);
+        fresh = hit || null;
+      } catch {
+        fresh = null;
+      }
+      const orig = fresh || { id: node.id, title: node.title || '', url: node.url || '', parentId: '' };
+      const isFolder = !orig.url;
+      const folders = await folderOptions(isFolder ? orig.id : '');
+
+      const fields = el('div', 'dlg-fields');
+
+      const makeField = (labelText, control) => {
+        const wrap = el('label', 'dlg-field');
+        wrap.append(el('span', 'dlg-label', labelText), control);
+        return wrap;
+      };
+
+      const titleInput = el('input', 'dlg-input');
+      titleInput.value = orig.title || '';
+      titleInput.placeholder = isFolder ? '分组名称' : '书签名称';
+      fields.append(makeField('名称', titleInput));
+
+      let urlInput = null;
+      if (!isFolder) {
+        urlInput = el('input', 'dlg-input mono');
+        urlInput.type = 'url';
+        urlInput.value = orig.url || '';
+        urlInput.placeholder = 'https://...';
+        urlInput.spellcheck = false;
+        fields.append(makeField('网址', urlInput));
+      }
+
+      const selectWrap = el('div', 'select-wrap');
+      const select = el('select', 'dlg-select');
+      for (const f of folders) {
+        const opt = el('option', '', f.label);
+        opt.value = f.id;
+        select.append(opt);
+      }
+      if (orig.parentId && folders.some((f) => f.id === orig.parentId)) {
+        select.value = orig.parentId;
+      }
+      selectWrap.append(select);
+      fields.append(makeField(isFolder ? '上级分组' : '所属分组', selectWrap));
+
+      const errEl = el('p', 'dlg-err');
+      errEl.hidden = true;
+      fields.append(errEl);
+
+      const showErr = (msg, target) => {
+        errEl.textContent = msg;
+        errEl.hidden = false;
+        if (target) target.focus();
+      };
+
       openDialog({
-        title: '重命名',
-        body: input,
+        title: isFolder ? '编辑分组' : '编辑书签',
+        body: fields,
         confirmText: '保存',
-        focus: input,
+        focus: titleInput,
         onConfirm: () => {
-          const value = input.value.trim();
-          if (value && value !== node.title) doUpdate(node.id, value);
+          const title = titleInput.value.trim();
+          if (!title) {
+            showErr('名称不能为空', titleInput);
+            return false;
+          }
+          let url = orig.url || '';
+          if (!isFolder && urlInput) {
+            url = urlInput.value.trim();
+            if (!isHttpUrl(url)) {
+              showErr('请输入有效的 http:// 或 https:// 网址', urlInput);
+              return false;
+            }
+          }
+          doEdit(orig, { title, url, parentId: select.value });
+          return true;
         },
       });
     }
 
     async function deleteDialog(node) {
+      if (!canEdit || !node || !node.id) return;
       let desc = '删除后无法撤销。';
       if (node.isFolder) {
         const n = await countDescendants(node.id);
@@ -256,28 +323,8 @@
       });
     }
 
-    async function moveDialog(node) {
-      const folders = await folderOptions();
-      const select = el('select', 'dlg-select');
-      for (const f of folders) {
-        if (f.id === node.id) continue;
-        const opt = el('option', '', `${'　'.repeat(f.depth)}${f.title}`);
-        opt.value = f.id;
-        select.append(opt);
-      }
-      const target = currentFolderId();
-      if (target) select.value = target;
-      openDialog({
-        title: '移动到',
-        body: select,
-        confirmText: '移动',
-        focus: select,
-        onConfirm: () => doMove(node.id, select.value),
-      });
-    }
-
     function createDialog(parentId, title = '新建分组') {
-      if (!parentId) return;
+      if (!canEdit || !parentId) return;
       const input = el('input', 'dlg-input');
       input.placeholder = '新分组名称';
       openDialog({
@@ -292,45 +339,21 @@
       });
     }
 
-    function nodeMenu(node, x, y) {
-      const items = [];
-      if (!node.isFolder) {
-        const isFav = state.favorites.includes(node.id);
-        items.push({ label: isFav ? '取消收藏' : '收藏', run: () => toggleFavorite(node.id) });
-      }
-      items.push(
-        { label: '重命名', run: () => renameDialog(node) },
-        { label: '移动到…', run: () => moveDialog(node) },
-        '-',
-        { label: '删除', danger: true, run: () => deleteDialog(node) },
-      );
-      if (node.isFolder) {
-        items.splice(1, 0, { label: '新建子分组', run: () => createDialog(node.id, '新建子分组') });
-      }
-      openMenu(x, y, items);
-    }
-
-    document.addEventListener('pointerdown', (e) => {
-      if (menuEl && !menuEl.contains(e.target)) closeMenu();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && menuEl) closeMenu();
-    });
-
     return {
       canEdit,
       hasDialog: () => !!dialogEl,
-      closeMenu,
-      nodeMenu,
       createDialog,
+      editDialog,
+      deleteDialog,
       doMove,
       doMoveBefore,
       doMoveRelative,
-      getDrag: () => ({ id: dragId, isFolder: dragIsFolder }),
-      startDrag: (id, isFolder, e) => {
+      getDrag: () => ({ id: dragId, title: dragTitle, isFolder: dragIsFolder }),
+      startDrag: (id, isFolder, e, title = '') => {
         dragId = id;
+        dragTitle = title;
         dragIsFolder = isFolder;
+        if (document.body) document.body.classList.add('is-dragging');
         e.dataTransfer.effectAllowed = 'move';
         try {
           e.dataTransfer.setData('text/plain', id);
@@ -338,10 +361,7 @@
           /* 受限上下文忽略 */
         }
       },
-      endDrag: () => {
-        dragId = '';
-        dragIsFolder = false;
-      },
+      endDrag: resetDrag,
     };
   };
 })();

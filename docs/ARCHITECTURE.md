@@ -22,7 +22,7 @@ neattab/
 │   ├── shared.js          # 公共工具、图标兜底与外观切换
 │   ├── transfer.js        # 书签 JSON 导入导出与顺序保真写回
 │   ├── newtab.js          # 状态管理、视图计算、渲染与键盘导航
-│   ├── newtab-edit.js     # 右键菜单、编辑弹窗与拖拽排序
+│   ├── newtab-edit.js     # 编辑对话框、拖拽排序与删除区域
 │   ├── newtab-settings.js
 │   ├── options.js
 │   ├── classifier.js      # 本地分类器（URL 识别与分组打分）

@@ -54,6 +54,7 @@
     empty: $('#empty'),
     emptyT: $('#empty-t'),
     emptyS: $('#empty-s'),
+    trashZone: $('#trash-zone'),
     themeBtn: $('#theme-btn'),
   };
 
@@ -180,11 +181,6 @@
     return false;
   }
 
-  function currentFolderId() {
-    const fid = state.view.folderId;
-    return fid && fid !== '__favorites__' && findFolder(fid) ? fid : '';
-  }
-
   function defaultView() {
     const savedId = state.view && state.view.folderId ? state.view.folderId : '';
     if (savedId === '__favorites__' || findFolder(savedId)) return { folderId: savedId };
@@ -291,13 +287,32 @@
     render();
   }
 
-  const editor = window.NAV.createEditor({ state, currentFolderId, loadBookmarks, toggleFavorite });
+  const editor = window.NAV.createEditor({ state, loadBookmarks });
   const settingsModal = window.NAV.createSettingsModal({
     state,
     savePrefs,
     loadBookmarks,
-    closeMenu: editor.closeMenu,
   });
+
+  if (els.trashZone && editor.canEdit) {
+    els.trashZone.addEventListener('dragover', (e) => {
+      const drag = editor.getDrag();
+      if (!drag.id) return;
+      e.preventDefault();
+      els.trashZone.classList.add('over');
+    });
+    els.trashZone.addEventListener('dragleave', (e) => {
+      if (!els.trashZone.contains(e.relatedTarget)) els.trashZone.classList.remove('over');
+    });
+    els.trashZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      els.trashZone.classList.remove('over');
+      const drag = editor.getDrag();
+      editor.endDrag();
+      if (drag.id) editor.deleteDialog({ id: drag.id, title: drag.title, isFolder: drag.isFolder });
+    });
+  }
 
   /* ---------------- 渲染 ---------------- */
 
@@ -320,7 +335,7 @@
     if (!editor.canEdit) return;
     rowEl.draggable = true;
     rowEl.addEventListener('dragstart', (e) => {
-      editor.startDrag(node.id, true, e);
+      editor.startDrag(node.id, true, e, node.title);
       rowEl.classList.add('dragging');
     });
     rowEl.addEventListener('dragend', () => {
@@ -329,7 +344,7 @@
     });
     rowEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      editor.nodeMenu({ id: node.id, title: node.title, isFolder: true }, e.clientX, e.clientY);
+      editor.editDialog({ id: node.id, title: node.title, isFolder: true });
     });
     rowEl.addEventListener('dragover', (e) => {
       const mode = resolveNavDrop(e, rowEl, node, editor.getDrag());
@@ -477,9 +492,23 @@
       const go = el('span', 'go');
       go.append(icon(PHOSPHOR.caret, 12));
       cell.append(icoBox, box, go);
+
       cell.addEventListener('click', () => openFolder(it.id));
 
       if (editor.canEdit) {
+        cell.draggable = true;
+        cell.addEventListener('dragstart', (e) => {
+          editor.startDrag(it.id, true, e, it.title);
+          cell.classList.add('dragging');
+        });
+        cell.addEventListener('dragend', () => {
+          editor.endDrag();
+          cell.classList.remove('dragging');
+        });
+        cell.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          editor.editDialog({ id: it.id, title: it.title, isFolder: true });
+        });
         cell.addEventListener('dragover', (e) => {
           const drag = editor.getDrag();
           if (!drag.id || drag.isFolder) return;
@@ -492,10 +521,6 @@
           cell.classList.remove('drop-into');
           const drag = editor.getDrag();
           if (drag.id && !drag.isFolder) editor.doMove(drag.id, it.id);
-        });
-        cell.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          editor.nodeMenu({ id: it.id, title: it.title, isFolder: true }, e.clientX, e.clientY);
         });
       }
       return cell;
@@ -515,33 +540,59 @@
     box.append(titleEl, domainEl);
     a.append(box);
 
-    // 在普通分组和搜索结果中标识已加入「我的收藏」的书签；「我的收藏」视图内不重复标星
-    const showFavMark =
-      state.favorites.includes(it.id) &&
-      (state.filter === 'search' || state.view.folderId !== '__favorites__');
-    if (showFavMark) {
-      const mark = el('span', 'fav-mark');
-      mark.title = '已加入「我的收藏」';
-      mark.setAttribute('aria-label', '已收藏');
-      mark.append(icon(PHOSPHOR.starFill, 13));
-      a.append(mark);
+    const isLoose = state.loose.some((x) => x.id === it.id);
+    if (!isLoose) {
+      const isFav = state.favorites.includes(it.id);
+      const favBtn = el('span', `fav-btn${isFav ? ' on' : ''}`);
+      favBtn.setAttribute('role', 'button');
+      favBtn.tabIndex = 0;
+      favBtn.title = isFav ? '取消收藏' : '加入「我的收藏」';
+      favBtn.setAttribute('aria-label', favBtn.title);
+      favBtn.setAttribute('aria-pressed', String(isFav));
+      favBtn.append(icon(isFav ? PHOSPHOR.starFill : PHOSPHOR.star, 14));
+      favBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFavorite(it.id);
+      });
+      favBtn.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      favBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavorite(it.id);
+        }
+      });
+      a.append(favBtn);
     }
 
+    let openTimer = 0;
     a.addEventListener('click', (e) => {
+      if (e.target.closest('.fav-btn')) return;
       if (e.ctrlKey || e.metaKey || e.shiftKey) return;
       e.preventDefault();
-      openUrl(it.url, false);
+      clearTimeout(openTimer);
+      openTimer = setTimeout(() => openUrl(it.url, false), 150);
     });
 
     if (editor.canEdit) {
       a.draggable = true;
       a.addEventListener('dragstart', (e) => {
-        editor.startDrag(it.id, false, e);
+        clearTimeout(openTimer);
+        editor.startDrag(it.id, false, e, it.title);
         a.classList.add('dragging');
       });
       a.addEventListener('dragend', () => {
         editor.endDrag();
         a.classList.remove('dragging');
+      });
+      a.addEventListener('contextmenu', (e) => {
+        clearTimeout(openTimer);
+        e.preventDefault();
+        editor.editDialog({ id: it.id, title: it.title, url: it.url, isFolder: false });
       });
       const canReorderCard = state.filter !== 'search' && state.view.folderId !== '__favorites__';
       a.addEventListener('dragover', (e) => {
@@ -560,10 +611,6 @@
           editor.doMoveBefore(drag.id, it.id);
         }
       });
-      a.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        editor.nodeMenu({ id: it.id, title: it.title, isFolder: false }, e.clientX, e.clientY);
-      });
     }
     return a;
   }
@@ -575,7 +622,7 @@
       els.emptyS.append(document.createTextNode('按 '), el('kbd', '', 'Esc'), document.createTextNode(' 清空搜索，或换个关键词试试'));
     } else if (state.view.folderId === '__favorites__') {
       els.emptyT.textContent = '还没有收藏的书签';
-      els.emptyS.textContent = '在任意书签上右键选择「收藏」，即可固定到这里';
+      els.emptyS.textContent = '鼠标悬停书签卡片并点击右侧 ★，即可固定到这里';
     } else {
       els.emptyT.textContent = '这个分组是空的';
       els.emptyS.append(document.createTextNode('按 '), el('kbd', '', '/'), document.createTextNode(' 搜索全部收藏'));
@@ -799,6 +846,14 @@
       if (!state.rows.length) return;
       e.preventDefault();
       moveSel(e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
+    if (e.key === 'F2' && !inField && editor.canEdit && state.sel >= 0) {
+      const it = state.rows[state.sel];
+      if (it && it.id) {
+        e.preventDefault();
+        editor.editDialog({ id: it.id, title: it.title, url: it.url, isFolder: it.kind === 'folder' });
+      }
       return;
     }
     if (e.key === 'Enter' && (state.sel >= 0 || (typing && state.rows.length))) {

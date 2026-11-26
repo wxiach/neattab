@@ -6,7 +6,7 @@
 (() => {
   const { hasExt, DEFAULTS, $, applyTheme, applyFont, paintSeg, populateRootSelect, createFontPicker } = window.NAV;
 
-  window.NAV.createSettingsModal = ({ state, savePrefs, loadBookmarks, closeMenu }) => {
+  window.NAV.createSettingsModal = ({ state, savePrefs, loadBookmarks }) => {
     const overlay = $('#settings-overlay');
     const triggerBtn = $('#settings');
     const closeBtn = $('#set-close');
@@ -66,7 +66,6 @@
         location.href = 'options.html';
         return;
       }
-      closeMenu();
       fontPicker.close();
       sync();
       await Promise.all([populateRootSelect(rootSel, state.rootId), fontPicker.load()]);
