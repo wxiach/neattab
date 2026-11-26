@@ -13,7 +13,7 @@
 
   const DEFAULTS = {
     rootId: '1',
-    openMode: 'same', // same | tab
+    openMode: 'tab', // tab | same
     theme: 'auto', // auto | light | dark
     font: 'system',
     view: null, // { topId, subId }

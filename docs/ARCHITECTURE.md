@@ -39,7 +39,7 @@ neattab/
 | 键名 | 说明 |
 |---|---|
 | `rootId` | 数据源目录 ID，默认 `"1"`（收藏夹栏） |
-| `openMode` | 点击书签的打开方式：`'same'` 或 `'tab'` |
+| `openMode` | 点击书签的打开方式：`'tab'`（默认）或 `'same'` |
 | `theme` | 外观主题：`'auto'` / `'light'` / `'dark'` |
 | `font` | 字体：`'system'` 或 `'sys:<字体名>'` |
 | `view` / `expanded` | 上次选中的分组与侧栏展开状态 |
