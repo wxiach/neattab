@@ -89,12 +89,13 @@
         base,
         sub,
         isIp,
+        rawPathname: u.pathname || '/',
         pathname: u.pathname.toLowerCase(),
         search: u.search.toLowerCase(),
         path: `${u.pathname}${u.search}${u.hash}`.toLowerCase(),
       };
     } catch {
-      return { ok: false, raw: '', cleanUrl: '', trimHash: '', origin: '', host: '', port: '', base: '', sub: '', isIp: false, pathname: '', search: '', path: '' };
+      return { ok: false, raw: '', cleanUrl: '', trimHash: '', origin: '', host: '', port: '', base: '', sub: '', isIp: false, rawPathname: '', pathname: '', search: '', path: '' };
     }
   }
 
@@ -110,6 +111,124 @@
       return re.test(u.pathname);
     });
     return hit ? { kind: 'content', label: '内容 / 帖子' } : { kind: 'site', label: '站点入口' };
+  }
+
+  const GITHUB_RESERVED = new Set([
+    'explore', 'settings', 'notifications', 'marketplace', 'pulls', 'issues', 'trending',
+    'topics', 'search', 'login', 'signup', 'join', 'pricing', 'features', 'sponsors',
+    'orgs', 'organizations', 'new', 'codespaces', 'copilot', 'enterprise', 'about',
+  ]);
+
+  const GENERIC_LEFT_RE = /^(?:首页|主页|登录|登陆|门户|用户中心|个人中心|收件箱|工作台|控制台|欢迎|home|inbox|login|sign\s*in|dashboard)$/i;
+
+  const SITE_TAIL_NOISE_RE = /(?:^|[\s\u4e00-\u9fa5])(?:首页|主页|官方网站|官网|门户首页|登录|登陆|欢迎登录|干杯|bilibili|记录美好生活|发现新鲜事|有问题.*答案|你的生活.*(?:指南|社区)|创意工作者|人人都有|数字战斗力|玩家社区|在线文档|一站式|领先的|专业的|全球最大|official\s*site|home\s*page|sign\s*in|log\s*in|welcome)/i;
+
+  const CONTENT_SITE_SUFFIX_RE = /(?:_哔哩哔哩_bilibili|_bilibili|\s*[-–—|·]\s*(?:哔哩哔哩|V2EX|知乎|YouTube|Reddit|小红书|微博|抖音|NGA玩家社区|NGA|稀土掘金|掘金|少数派|虎嗅|36氪|博客园|CSDN博客|CSDN|思否|SegmentFault|简书|微信公众号|虎扑|百度贴吧|贴吧|GitHub))$/i;
+
+  const HOME_PATH_RE = /^\/(?:|home|explore|index(?:\.[a-z]+)?|discover|recommend|ys)\/?$/i;
+
+  function stripUnreadPrefix(s) {
+    let out = String(s || '').replace(/\s+/g, ' ').trim();
+    let prev = '';
+    while (out !== prev) {
+      prev = out;
+      out = out
+        .replace(/^\(\d+\+?\)\s*/, '')
+        .replace(/^\[\d+\+?\]\s*/, '')
+        .replace(/^【\d+条?新消息】\s*/, '')
+        .replace(/^[•·●★☆]\s+/, '')
+        .trim();
+    }
+    return out;
+  }
+
+  function cleanCodeHostTitle(title, u) {
+    const segs = (u.rawPathname || '/').split('/').filter(Boolean);
+    if (u.host === 'github.com') {
+      if (segs.length === 0) return 'GitHub';
+      const first = segs[0].toLowerCase();
+      if (!GITHUB_RESERVED.has(first)) {
+        if (segs.length === 1) return `GitHub · ${segs[0]}`;
+        const owner = segs[0];
+        const repo = segs[1];
+        if (segs.length === 2) return `${owner}/${repo}`;
+        const third = segs[2].toLowerCase();
+        if ((third === 'issues' || third === 'pull' || third === 'discussions') && /^\d+$/.test(segs[3] || '')) {
+          const num = segs[3];
+          let core = title
+            .replace(/\s*·\s*GitHub$/i, '')
+            .replace(new RegExp(`\\s*·\\s*${owner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/${repo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), '')
+            .replace(/\s*(?:by\s+\S+\s*)?·\s*(?:Issue|Pull Request|Discussion)\s*#\d+$/i, '')
+            .trim();
+          return core ? `${core} (#${num} · ${repo})` : `${owner}/${repo} #${num}`;
+        }
+        if (third === 'releases') return `Releases · ${repo}`;
+        if ((third === 'blob' || third === 'tree') && segs.length >= 5) {
+          return `${segs[segs.length - 1]} · ${repo}`;
+        }
+      }
+      return title.replace(/^GitHub\s*[-–—·]\s*/i, '').replace(/\s*[-–—·]\s*GitHub$/i, '').trim() || 'GitHub';
+    }
+
+    if (u.host === 'gitee.com') {
+      if (segs.length === 0) return 'Gitee';
+      const first = segs[0].toLowerCase();
+      if (segs.length === 2 && !GITHUB_RESERVED.has(first)) return `${segs[0]}/${segs[1]}`;
+      return title.replace(/\s*[-–—·]\s*Gitee(?:\.com)?$/i, '').trim() || 'Gitee';
+    }
+
+    if (/gitlab/i.test(u.host) || /\s*[-–—·]\s*GitLab$/i.test(title)) {
+      const stripped = title.replace(/\s*[-–—·]\s*GitLab$/i, '').trim();
+      if (stripped.includes(' / ')) {
+        const parts = stripped.split(/\s*\/\s*/).filter(Boolean);
+        const last = parts[parts.length - 1];
+        if (last) return `${last} · GitLab`;
+      }
+      return stripped ? `${stripped} · GitLab` : 'GitLab';
+    }
+
+    return '';
+  }
+
+  /** 本地精简网页标题：去掉未读数、宣传语、冗长代码路径与重复站点后缀。 */
+  function cleanTitle(rawTitle, urlInfo, pageKind) {
+    const base = stripUnreadPrefix(rawTitle);
+    const u = urlInfo && urlInfo.ok ? urlInfo : { ok: false, host: '', base: '', pathname: '/', rawPathname: '/' };
+    if (!base) return u.host || '';
+
+    // 1. 代码托管站点按路径规范化
+    if (u.ok) {
+      const codeName = cleanCodeHostTitle(base, u);
+      if (codeName) return codeName;
+      if (u.host === 'mail.google.com' && /gmail/i.test(base)) return 'Gmail';
+    }
+
+    // 2. 内容/帖子页：保留正文标题，仅去掉重复的站点后缀
+    if (pageKind && pageKind.kind === 'content') {
+      const stripped = base.replace(CONTENT_SITE_SUFFIX_RE, '').trim();
+      return stripped.length >= 2 ? stripped : base;
+    }
+
+    // 3. 站点入口页：处理常见花哨标题与宣传尾缀
+    if (/^哔哩哔哩\s*\(.*bilibili/i.test(base)) return '哔哩哔哩';
+
+    const sepMatch = base.match(/^(.+?)\s+(?:[-–—|｜›])\s+(.+)$/) || base.match(/^([\u4e00-\u9fa5A-Za-z0-9]{2,12})[-–—|｜](.{4,})$/);
+    if (sepMatch) {
+      const left = sepMatch[1].trim();
+      const right = sepMatch[2].trim();
+      if (GENERIC_LEFT_RE.test(left) && right.length >= 2 && right.length <= 18 && !SITE_TAIL_NOISE_RE.test(right)) {
+        return right;
+      }
+      const isHome = HOME_PATH_RE.test(u.pathname || '/');
+      const noisyTail =
+        SITE_TAIL_NOISE_RE.test(right) ||
+        (isHome && (right.length >= 10 || /[!！，,。~～]/.test(right)));
+      if (noisyTail && left.length >= 2 && !GENERIC_LEFT_RE.test(left)) {
+        return left;
+      }
+    }
+
+    return base;
   }
 
   const addFeat = (map, key, w) => map.set(key, (map.get(key) || 0) + w);
@@ -293,7 +412,8 @@
 
         const cosine = dot / (queryNorm * cls.norm);
         const prior = Math.log(Math.sqrt(cls.docCount + 1) / Math.sqrt(totalDocs + numClasses));
-        const score = nbDelta * 0.28 + cosine * 6.0 + prior * 0.12 + (cls.folder.depth === 2 ? 0.15 : 0);
+        const leafBonus = !cls.folder.hasChildren && cls.folder.depth >= 2 ? 0.15 : 0;
+        const score = nbDelta * 0.28 + cosine * 6.0 + prior * 0.12 + leafBonus;
         results.push({ folder: cls.folder, score, topFeatKey });
       }
 
@@ -323,5 +443,5 @@
   }
 
   window.NAV = window.NAV || {};
-  window.NAV.classifier = { parseUrl, detectPageKind, buildFolders, findReadingFolder, trainLocalModel };
+  window.NAV.classifier = { parseUrl, detectPageKind, cleanTitle, buildFolders, findReadingFolder, trainLocalModel };
 })();

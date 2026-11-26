@@ -5,7 +5,7 @@
  */
 (() => {
   const { DEFAULTS, $, el, applyTheme, applyFont, findNode, makeFavicon } = window.NAV;
-  const { parseUrl, detectPageKind, buildFolders, findReadingFolder, trainLocalModel } = window.NAV.classifier;
+  const { parseUrl, detectPageKind, cleanTitle, buildFolders, findReadingFolder, trainLocalModel } = window.NAV.classifier;
 
   const MAX_FEEDBACK = 200;
   const NEW_PREFIX = '__new__:';
@@ -20,6 +20,7 @@
     kindTag: $('#kind-tag'),
     pageReason: $('#page-reason'),
     titleInput: $('#title-input'),
+    titleToggle: $('#title-toggle'),
     folderSelect: $('#folder-select'),
     newFolderBtn: $('#new-folder-btn'),
     newFolderBox: $('#new-folder-box'),
@@ -52,6 +53,8 @@
     folderMap: new Map(),
     predictedId: '',
     pendingFolders: [],
+    rawTitle: '',
+    cleanName: '',
   };
 
   function renderFolderSelect(selectedValue) {
@@ -247,6 +250,28 @@
     }
   }
 
+  function syncTitleToggle() {
+    if (!els.titleToggle) return;
+    if (!ctx.rawTitle || !ctx.cleanName || ctx.rawTitle === ctx.cleanName) {
+      els.titleToggle.hidden = true;
+      return;
+    }
+    const cur = els.titleInput.value.trim();
+    els.titleToggle.hidden = false;
+    els.titleToggle.textContent = cur === ctx.cleanName ? '已精简 · 还原' : '使用精简名';
+  }
+
+  if (els.titleToggle) {
+    els.titleToggle.addEventListener('click', () => {
+      const cur = els.titleInput.value.trim();
+      els.titleInput.value = cur === ctx.cleanName ? ctx.rawTitle : ctx.cleanName;
+      syncTitleToggle();
+      els.titleInput.focus();
+      els.titleInput.select();
+    });
+  }
+  els.titleInput.addEventListener('input', syncTitleToggle);
+
   els.folderSelect.addEventListener('change', syncQuickPickActive);
   els.newFolderBtn.addEventListener('click', () => {
     if (els.newFolderBox.hidden) {
@@ -367,7 +392,10 @@
       els.popTitle.textContent = '编辑收藏';
       els.popBadge.textContent = '已收藏';
       els.popBadge.hidden = false;
-      els.titleInput.value = ctx.existing.title || tab.title || urlInfo.host;
+      ctx.rawTitle = (ctx.existing.title || tab.title || urlInfo.host).trim();
+      ctx.cleanName = cleanTitle(ctx.rawTitle, urlInfo, ctx.pageKind);
+      els.titleInput.value = ctx.rawTitle;
+      syncTitleToggle();
       const curFolder = ctx.folderMap.get(ctx.existing.parentId);
       els.pageReason.textContent = curFolder ? `当前位于「${curFolder.pathLabel}」` : '当前已保存在其它目录';
       renderFolderSelect(curFolder ? curFolder.id : rootNode.id);
@@ -407,10 +435,13 @@
       }
 
       ctx.predictedId = chosenVal;
+      ctx.rawTitle = (tab.title || '').trim() || urlInfo.host;
+      ctx.cleanName = cleanTitle(ctx.rawTitle, urlInfo, ctx.pageKind);
       els.popTitle.textContent = '收藏当前页';
       els.popBadge.textContent = badgeText;
       els.popBadge.hidden = false;
-      els.titleInput.value = (tab.title || '').trim() || urlInfo.host;
+      els.titleInput.value = ctx.cleanName;
+      syncTitleToggle();
       els.pageReason.textContent = reasonLine;
       els.matchHint.textContent = hintText;
       renderFolderSelect(chosenVal);

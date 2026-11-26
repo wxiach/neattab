@@ -181,6 +181,29 @@ body {
   text-overflow: ellipsis;
 }
 
+.title-toggle {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--ink3);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line3);
+  transition: color 0.12s ease;
+}
+
+.title-toggle:hover {
+  color: var(--blue);
+}
+
+.title-toggle[hidden] {
+  display: none;
+}
+
 .folder-row,
 .new-folder-box {
   display: flex;
