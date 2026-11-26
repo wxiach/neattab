@@ -15,10 +15,11 @@
   --search-w: 360px;
   --search-h: 36px;
   --top-btn-sz: 32px;
-  --addbtn-h: 32px;
 
   --nav-h: 34px;
   --nav-sub-h: 32px;
+  --nav-indent-base: 32px;
+  --nav-indent-step: 14px;
 
   --cell-py: 13px;
   --cell-px: 16px;
@@ -269,11 +270,71 @@ body {
   background: var(--line);
 }
 
+.n-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 6px 10px;
+}
+
 .n-label {
-  padding: 0 10px 6px;
   font-size: var(--fs-meta);
   font-weight: 500;
   color: var(--ink3);
+}
+
+.n-add,
+.n-item-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink3);
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+}
+
+.n-add:hover,
+.n-item-add:hover {
+  background: var(--surface);
+  border-color: var(--line2);
+  color: var(--ink);
+}
+
+.n-row {
+  position: relative;
+}
+
+.n-item-add {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.n-row:hover .n-item-add,
+.n-row:focus-within .n-item-add {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.n-row:hover .n-item .n,
+.n-row:focus-within .n-item .n,
+.n-row:hover .n-sub .n,
+.n-row:focus-within .n-sub .n {
+  opacity: 0;
+}
+
+.n-row:hover .n-item:not(.on),
+.n-row:hover .n-sub:not(.on) {
+  background: var(--hover);
+  color: var(--ink);
 }
 
 .n-item,
@@ -303,7 +364,7 @@ body {
   gap: 8px;
   height: var(--nav-sub-h);
   margin: 2px 0;
-  padding: 0 10px 0 32px;
+  padding: 0 10px 0 calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step));
   font-size: var(--fs-sub);
   color: var(--ink2);
 }
@@ -329,11 +390,31 @@ body {
 .n-sub.on::before {
   content: "";
   position: absolute;
-  left: 16px;
+  left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 16px);
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--blue);
+}
+
+.n-sub.has-kids.on::before {
+  display: none;
+}
+
+.n-sub .sub-caret {
+  position: absolute;
+  left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 18px);
+  flex: none;
+  color: var(--ink3);
+  transition: transform 0.14s ease, color 0.12s ease;
+}
+
+.n-sub.open .sub-caret {
+  transform: rotate(90deg);
+}
+
+.n-sub.on .sub-caret {
+  color: var(--blue);
 }
 
 .n-item .fico {
@@ -341,7 +422,7 @@ body {
   color: var(--ink3);
 }
 
-.n-item[data-top="__favorites__"] .fico {
+.n-item[data-folder="__favorites__"] .fico {
   color: var(--amber);
 }
 
@@ -417,7 +498,7 @@ body {
   justify-content: space-between;
   gap: 14px;
   margin-bottom: var(--head-mb);
-  min-height: var(--addbtn-h);
+  min-height: var(--top-btn-sz);
 }
 
 .bc {
@@ -464,34 +545,6 @@ body {
   font-family: var(--mono);
   font-size: var(--fs-sub);
   color: var(--ink2);
-}
-
-.addbtn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--addbtn-h);
-  padding: 0 11px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink2);
-  font-family: var(--font);
-  font-size: var(--fs-group);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  transition: border-color 0.12s ease, color 0.12s ease;
-}
-
-.addbtn:hover:not(:disabled) {
-  border-color: var(--line2);
-  color: var(--ink);
-}
-
-.addbtn:disabled {
-  opacity: 0.38;
-  cursor: default;
-  box-shadow: none;
 }
 
 .sheet {
@@ -670,14 +723,33 @@ body {
   opacity: 1;
 }
 
-.cell.dragging {
+.cell.dragging,
+.n-row.dragging,
+.n-item.dragging,
+.n-sub.dragging {
   opacity: 0.4;
 }
 
+.n-row.drop-into .n-item,
+.n-row.drop-into .n-sub,
 .n-item.drop-into,
 .n-sub.drop-into {
   background: var(--blue-soft);
   border-color: var(--blue-line);
+}
+
+.n-row.drop-before .n-item,
+.n-row.drop-before .n-sub,
+.n-item.drop-before,
+.n-sub.drop-before {
+  box-shadow: inset 0 2px 0 0 var(--blue);
+}
+
+.n-row.drop-after .n-item,
+.n-row.drop-after .n-sub,
+.n-item.drop-after,
+.n-sub.drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--blue);
 }
 
 /* ---------- 空状态 ---------- */
@@ -1032,8 +1104,18 @@ body {
     margin: 15px 6px;
   }
 
-  .n-label {
-    padding: 0 12px 7px;
+  .n-head {
+    padding: 0 6px 7px 12px;
+  }
+
+  .n-add,
+  .n-item-add {
+    width: 26px;
+    height: 26px;
+  }
+
+  .n-item-add {
+    right: 6px;
   }
 
   .n-item,
@@ -1043,13 +1125,21 @@ body {
   }
 
   .n-sub {
-    padding: 0 12px 0 38px;
+    --nav-indent-base: 38px;
+    --nav-indent-step: 16px;
+    padding-right: 12px;
   }
 
   .n-sub.on::before {
-    left: 18px;
+    left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 20px);
     width: 7px;
     height: 7px;
+  }
+
+  .n-sub .sub-caret {
+    left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 22px);
+    width: 11px;
+    height: 11px;
   }
 
   .n-item .n,
@@ -1059,11 +1149,6 @@ body {
 
   .cb {
     gap: 3px;
-  }
-
-  .addbtn {
-    gap: 7px;
-    padding: 0 14px;
   }
 
   .brand-ico svg,
@@ -1099,7 +1184,6 @@ body {
     --search-w: 540px;
     --search-h: 48px;
     --top-btn-sz: 44px;
-    --addbtn-h: 42px;
 
     --nav-h: 46px;
     --nav-sub-h: 42px;
@@ -1135,13 +1219,21 @@ body {
   }
 
   .n-sub {
-    padding: 0 14px 0 44px;
+    --nav-indent-base: 44px;
+    --nav-indent-step: 18px;
+    padding-right: 14px;
   }
 
   .n-sub.on::before {
-    left: 20px;
+    left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 24px);
     width: 8px;
     height: 8px;
+  }
+
+  .n-sub .sub-caret {
+    left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 26px);
+    width: 12px;
+    height: 12px;
   }
 
   .brand-ico svg,
@@ -1217,10 +1309,15 @@ body {
   }
 
   .n-div,
-  .n-label,
+  .n-head,
   .n-kids,
-  .n-item .n {
+  .n-item .n,
+  .n-item-add {
     display: none;
+  }
+
+  .n-row {
+    flex: none;
   }
 
   .n-item {
@@ -1258,8 +1355,7 @@ body {
     width: calc(100% - 32px);
   }
 
-  .coll-sub,
-  .addbtn-txt {
+  .coll-sub {
     display: none;
   }
 

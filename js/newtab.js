@@ -24,13 +24,15 @@
 
   const state = {
     rootId: DEFAULTS.rootId,
+    resolvedRootId: '',
     openMode: DEFAULTS.openMode,
     theme: DEFAULTS.theme,
     font: DEFAULTS.font,
     rootName: '收藏夹',
     tops: [],
     loose: [],
-    view: { topId: '', subId: '' },
+    folderMap: new Map(),
+    view: { folderId: '' },
     expanded: new Set(),
     favorites: [],
     itemIndex: new Map(),
@@ -52,7 +54,6 @@
     empty: $('#empty'),
     emptyT: $('#empty-t'),
     emptyS: $('#empty-s'),
-    newFolder: $('#new-folder'),
     themeBtn: $('#theme-btn'),
   };
 
@@ -107,75 +108,97 @@
     };
   }
 
-  function collect(node, group, out) {
+  function buildFolderNode(node, parentId, depth, topTitle) {
+    const title = (node.title || '未命名').trim();
+    const groupTitle = depth === 1 ? title : topTitle;
+    const items = [];
+    const children = [];
+    let totalCount = 0;
+
     for (const c of node.children || []) {
-      if (isLink(c)) out.push(itemOf(c, group));
-      else if (!c.url) collect(c, group, out);
+      if (isLink(c)) {
+        const it = itemOf(c, '');
+        items.push(it);
+        state.itemIndex.set(it.id, { item: it, group: groupTitle });
+        totalCount += 1;
+      } else if (!c.url) {
+        const child = buildFolderNode(c, node.id, depth + 1, groupTitle);
+        children.push(child);
+        totalCount += child.totalCount;
+      }
     }
-    return out;
+
+    const folder = { id: node.id, title, parentId, depth, items, children, totalCount };
+    state.folderMap.set(folder.id, folder);
+    return folder;
   }
 
   function buildRoot(rootNode) {
+    state.resolvedRootId = rootNode.id;
     state.rootName = (rootNode.title || '收藏夹').trim();
     els.collSource.textContent = state.rootId === DEFAULTS.rootId ? '书签导航' : state.rootName;
 
     const tops = [];
     const loose = [];
+    state.folderMap = new Map();
+    state.itemIndex = new Map();
+
     for (const child of rootNode.children || []) {
       if (isLink(child)) {
-        loose.push(itemOf(child, ''));
+        const it = itemOf(child, '');
+        loose.push(it);
+        state.itemIndex.set(it.id, { item: it, group: '未分组' });
         continue;
       }
       if (child.url) continue;
-      const top = { id: child.id, title: (child.title || '未命名').trim(), items: [], children: [] };
-      for (const sub of child.children || []) {
-        if (isLink(sub)) top.items.push(itemOf(sub, ''));
-        else if (!sub.url) {
-          top.children.push({ id: sub.id, title: (sub.title || '未命名').trim(), items: collect(sub, '', []) });
-        }
-      }
-      tops.push(top);
+      tops.push(buildFolderNode(child, rootNode.id, 1, ''));
     }
 
     state.loose = loose;
     state.tops = tops;
-
-    state.itemIndex = new Map();
-    for (const it of loose) state.itemIndex.set(it.id, { item: it, group: '未分组' });
-    for (const t of tops) {
-      for (const it of t.items) state.itemIndex.set(it.id, { item: it, group: t.title });
-      for (const ch of t.children) {
-        for (const it of ch.items) state.itemIndex.set(it.id, { item: it, group: t.title });
-      }
-    }
     state.favorites = state.favorites.filter((id) => state.itemIndex.has(id));
   }
 
-  const countOf = (top) => top.items.length + top.children.reduce((n, c) => n + c.items.length, 0);
-  const findTop = (id) => state.tops.find((t) => t.id === id) || null;
+  const findFolder = (id) => (id ? state.folderMap.get(id) || null : null);
 
-  function findSub(id) {
-    for (const t of state.tops) {
-      const sub = t.children.find((c) => c.id === id);
-      if (sub) return { top: t, sub };
+  function ancestorChain(id) {
+    const chain = [];
+    let cur = findFolder(id);
+    while (cur) {
+      chain.unshift(cur);
+      cur = findFolder(cur.parentId);
     }
-    return null;
+    return chain;
+  }
+
+  function isDescendant(id, maybeAncestorId) {
+    let cur = findFolder(id);
+    while (cur) {
+      if (cur.id === maybeAncestorId) return true;
+      cur = findFolder(cur.parentId);
+    }
+    return false;
   }
 
   function currentFolderId() {
-    if (state.view.subId) return state.view.subId;
-    if (state.view.topId && state.view.topId !== '__favorites__') return state.view.topId;
-    return '';
+    const fid = state.view.folderId;
+    return fid && fid !== '__favorites__' && findFolder(fid) ? fid : '';
   }
 
   function defaultView() {
-    const saved = state.view && state.view.topId ? state.view : null;
-    if (saved) {
-      if (saved.subId && findSub(saved.subId)) return saved;
-      if (findTop(saved.topId)) return { topId: saved.topId, subId: '' };
-    }
+    const savedId = state.view && state.view.folderId ? state.view.folderId : '';
+    if (savedId === '__favorites__' || findFolder(savedId)) return { folderId: savedId };
     const first = state.tops.find((t) => t.children.length) || state.tops[0];
-    return first ? { topId: first.id, subId: '' } : { topId: '__favorites__', subId: '' };
+    return first ? { folderId: first.id } : { folderId: '__favorites__' };
+  }
+
+  function collectFolderItems(folder, groupTitle, filterFn, out) {
+    for (const it of folder.items) {
+      if (!filterFn || filterFn(it)) out.push({ ...it, kind: 'link', group: groupTitle });
+    }
+    for (const c of folder.children) {
+      collectFolderItems(c, groupTitle, filterFn, out);
+    }
   }
 
   /* ---------------- 视图计算 ---------------- */
@@ -214,65 +237,47 @@
         if (matchRow(it, q)) rows.push({ ...it, kind: 'link', group: '未分组' });
       }
       for (const t of state.tops) {
-        for (const it of t.items) if (matchRow(it, q)) rows.push({ ...it, kind: 'link', group: t.title });
-        for (const c of t.children) {
-          for (const it of c.items) if (matchRow(it, q)) rows.push({ ...it, kind: 'link', group: t.title });
-        }
+        collectFolderItems(t, t.title, (it) => matchRow(it, q), rows);
       }
       state.filter = 'search';
       return { rows, group: true, crumb: ['搜索'], hits: rows.length };
     }
 
     state.filter = 'folder';
-    const v = state.view;
-    if (v.subId) {
-      const hit = findSub(v.subId);
-      if (hit) {
-        return {
-          rows: hit.sub.items.map((it) => ({ ...it, kind: 'link', group: '' })),
-          group: false,
-          crumb: [{ title: hit.top.title, topId: hit.top.id }, { title: hit.sub.title }],
-        };
-      }
-    }
+    const fid = state.view.folderId;
 
-    if (v.topId === '__favorites__') {
+    if (fid === '__favorites__') {
       const favSet = new Set(state.favorites);
       const rows = [];
       for (const it of state.loose) {
         rows.push({ ...it, kind: 'link', group: '未分组' });
       }
       for (const t of state.tops) {
-        for (const it of t.items) {
-          if (favSet.has(it.id)) rows.push({ ...it, kind: 'link', group: t.title });
-        }
-        for (const c of t.children) {
-          for (const it of c.items) {
-            if (favSet.has(it.id)) rows.push({ ...it, kind: 'link', group: t.title });
-          }
-        }
+        collectFolderItems(t, t.title, (it) => favSet.has(it.id), rows);
       }
       return { rows, group: rows.length > 0, crumb: [{ title: '我的收藏' }] };
     }
 
-    const top = findTop(v.topId) || findTop((defaultView() || {}).topId);
-    if (!top) return { rows: [], group: false, crumb: [{ title: state.rootName }] };
+    const folder = findFolder(fid) || findFolder((defaultView() || {}).folderId);
+    if (!folder) return { rows: [], group: false, crumb: [{ title: state.rootName }] };
+
+    const crumb = ancestorChain(folder.id).map((f) => ({ title: f.title, folderId: f.id }));
 
     // 「阅读清单」先按站点分段，站点内部按收藏时间由新到旧排序
-    if (READING_FOLDER_RE.test(top.title) && top.children.length === 0) {
-      const rows = buildReadingRows(top.items);
-      return { rows, group: rows.length > 0, crumb: [{ title: top.title }] };
+    if (READING_FOLDER_RE.test(folder.title) && folder.children.length === 0) {
+      const rows = buildReadingRows(folder.items);
+      return { rows, group: rows.length > 0, crumb };
     }
 
     const rows = [
-      ...top.items.map((it) => ({ ...it, kind: 'link', group: '' })),
-      ...top.children.map((c) => ({ kind: 'folder', id: c.id, title: c.title, count: c.items.length })),
+      ...folder.items.map((it) => ({ ...it, kind: 'link', group: '' })),
+      ...folder.children.map((c) => ({ kind: 'folder', id: c.id, title: c.title, count: c.totalCount })),
     ];
     return {
       rows,
       group: false,
-      splitSections: top.items.length > 0 && top.children.length > 0,
-      crumb: [{ title: top.title }],
+      splitSections: folder.items.length > 0 && folder.children.length > 0,
+      crumb,
     };
   }
 
@@ -296,29 +301,101 @@
 
   /* ---------------- 渲染 ---------------- */
 
-  function wireNavEdit(btn, node, allowFolderDrop) {
+  function clearDropClass(elNode) {
+    elNode.classList.remove('drop-into', 'drop-before', 'drop-after');
+  }
+
+  function resolveNavDrop(e, targetEl, node, drag) {
+    if (!drag.id || drag.id === node.id) return '';
+    if (!drag.isFolder) return 'into';
+    if (isDescendant(node.id, drag.id)) return '';
+    const rect = targetEl.getBoundingClientRect();
+    const relY = rect.height ? (e.clientY - rect.top) / rect.height : 0.5;
+    if (relY < 0.28) return 'before';
+    if (relY > 0.72) return 'after';
+    return 'into';
+  }
+
+  function wireNavEdit(rowEl, node) {
     if (!editor.canEdit) return;
-    btn.draggable = true;
-    btn.addEventListener('dragstart', (e) => editor.startDrag(node.id, true, e));
-    btn.addEventListener('dragend', editor.endDrag);
-    btn.addEventListener('contextmenu', (e) => {
+    rowEl.draggable = true;
+    rowEl.addEventListener('dragstart', (e) => {
+      editor.startDrag(node.id, true, e);
+      rowEl.classList.add('dragging');
+    });
+    rowEl.addEventListener('dragend', () => {
+      editor.endDrag();
+      rowEl.classList.remove('dragging');
+    });
+    rowEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       editor.nodeMenu({ id: node.id, title: node.title, isFolder: true }, e.clientX, e.clientY);
     });
-    btn.addEventListener('dragover', (e) => {
-      const drag = editor.getDrag();
-      if (!drag.id || (!allowFolderDrop && drag.isFolder)) return;
+    rowEl.addEventListener('dragover', (e) => {
+      const mode = resolveNavDrop(e, rowEl, node, editor.getDrag());
+      clearDropClass(rowEl);
+      if (!mode) return;
       e.preventDefault();
-      btn.classList.add('drop-into');
+      rowEl.classList.add(`drop-${mode}`);
     });
-    btn.addEventListener('dragleave', () => btn.classList.remove('drop-into'));
-    btn.addEventListener('drop', (e) => {
+    rowEl.addEventListener('dragleave', (e) => {
+      if (!rowEl.contains(e.relatedTarget)) clearDropClass(rowEl);
+    });
+    rowEl.addEventListener('drop', (e) => {
+      const drag = editor.getDrag();
+      const mode = resolveNavDrop(e, rowEl, node, drag);
+      clearDropClass(rowEl);
+      if (!mode) return;
       e.preventDefault();
       e.stopPropagation();
-      btn.classList.remove('drop-into');
-      const drag = editor.getDrag();
-      if (drag.id && (allowFolderDrop || !drag.isFolder)) editor.doMove(drag.id, node.id);
+      if (mode === 'into') editor.doMove(drag.id, node.id);
+      else editor.doMoveRelative(drag.id, node.id, mode);
     });
+  }
+
+  function renderNavBranch(folder, activeAncestors) {
+    const frag = document.createDocumentFragment();
+    const hasKids = folder.children.length > 0;
+    const open = hasKids && (state.expanded.has(folder.id) || activeAncestors.has(folder.id));
+    const isActive = !state.q && state.view.folderId === folder.id;
+
+    const row = el('div', 'n-row');
+    const isTop = folder.depth === 1;
+    const btn = el('button', isTop ? 'n-item' : 'n-sub');
+    btn.type = 'button';
+    btn.dataset.folder = folder.id;
+    if (!isTop) btn.style.setProperty('--depth-off', String(folder.depth - 2));
+    if (hasKids) btn.classList.add('has-kids');
+    if (open) btn.classList.add('open');
+    if (isActive) btn.classList.add('on');
+
+    if (isTop) {
+      btn.append(icon(open ? PHOSPHOR.folderOpen : PHOSPHOR.folder, 15, 'fico'));
+    } else if (hasKids) {
+      btn.append(icon(PHOSPHOR.caret, 10, 'sub-caret'));
+    }
+    btn.append(el('span', 'nm', folder.title), el('span', 'n', String(folder.totalCount)));
+    row.append(btn);
+
+    if (editor.canEdit) {
+      const subAdd = el('button', 'n-item-add');
+      subAdd.type = 'button';
+      subAdd.dataset.addSub = folder.id;
+      subAdd.title = `在「${folder.title}」下新建子分组`;
+      subAdd.setAttribute('aria-label', `在「${folder.title}」下新建子分组`);
+      subAdd.append(icon(PHOSPHOR.plus, 12));
+      row.append(subAdd);
+    }
+
+    wireNavEdit(row, folder);
+    frag.append(row);
+
+    if (open) {
+      const kids = el('div', 'n-kids');
+      for (const c of folder.children) kids.append(renderNavBranch(c, activeAncestors));
+      frag.append(kids);
+    }
+    return frag;
   }
 
   function renderNav() {
@@ -326,43 +403,35 @@
 
     const fav = el('button', 'n-item');
     fav.type = 'button';
-    fav.dataset.top = '__favorites__';
-    if (!state.q && !state.view.subId && state.view.topId === '__favorites__') fav.classList.add('on');
+    fav.dataset.folder = '__favorites__';
+    if (!state.q && state.view.folderId === '__favorites__') fav.classList.add('on');
     fav.append(icon(PHOSPHOR.star, 15, 'fico'), el('span', 'nm', '我的收藏'));
     const favCount = new Set([...state.favorites, ...state.loose.map((it) => it.id)]).size;
     fav.append(el('span', 'n', String(favCount)));
     frag.append(fav);
 
-    if (state.tops.length) {
-      frag.append(el('div', 'n-div'), el('div', 'n-label', '分组'));
+    if (state.tops.length || editor.canEdit) {
+      frag.append(el('div', 'n-div'));
+      const head = el('div', 'n-head');
+      head.append(el('span', 'n-label', '分组'));
+      if (editor.canEdit) {
+        const addBtn = el('button', 'n-add');
+        addBtn.type = 'button';
+        addBtn.title = '新建一级分组';
+        addBtn.setAttribute('aria-label', '新建一级分组');
+        addBtn.append(icon(PHOSPHOR.plus, 12));
+        head.append(addBtn);
+      }
+      frag.append(head);
     }
 
-    for (const t of state.tops) {
-      const open = state.expanded.has(t.id) || t.children.some((c) => c.id === state.view.subId);
-      const btn = el('button', 'n-item');
-      btn.type = 'button';
-      btn.dataset.top = t.id;
-      if (open) btn.classList.add('open');
-      if (!state.q && !state.view.subId && state.view.topId === t.id) btn.classList.add('on');
-      btn.append(icon(open && t.children.length ? PHOSPHOR.folderOpen : PHOSPHOR.folder, 15, 'fico'));
-      btn.append(el('span', 'nm', t.title), el('span', 'n', String(countOf(t))));
-      wireNavEdit(btn, t, true);
-      frag.append(btn);
+    // 仅展开当前路径的祖先节点，当前节点本身遵循 state.expanded 以便点击折叠
+    const activeAncestors = new Set();
+    const chain = ancestorChain(state.view.folderId);
+    for (let i = 0; i < chain.length - 1; i += 1) activeAncestors.add(chain[i].id);
 
-      if (open && t.children.length) {
-        const kids = el('div', 'n-kids');
-        for (const c of t.children) {
-          const sb = el('button', 'n-sub');
-          sb.type = 'button';
-          sb.dataset.top = t.id;
-          sb.dataset.sub = c.id;
-          if (!state.q && state.view.subId === c.id) sb.classList.add('on');
-          sb.append(el('span', 'nm', c.title), el('span', 'n', String(c.items.length)));
-          wireNavEdit(sb, c, false);
-          kids.append(sb);
-        }
-        frag.append(kids);
-      }
+    for (const t of state.tops) {
+      frag.append(renderNavBranch(t, activeAncestors));
     }
     els.nav.replaceChildren(frag);
   }
@@ -378,10 +447,10 @@
       if (i) frag.append(el('span', 'sep', '/'));
       const label = typeof entry === 'string' ? entry : entry.title;
       const last = i === crumb.length - 1;
-      if (!last && entry && entry.topId) {
+      if (!last && entry && entry.folderId) {
         const btn = el('button', 'bc-link', label);
         btn.type = 'button';
-        btn.addEventListener('click', () => selectTop(entry.topId));
+        btn.addEventListener('click', () => selectFolder(entry.folderId));
         frag.append(btn);
       } else {
         frag.append(el('span', last ? 'cur' : '', label));
@@ -449,7 +518,7 @@
     // 在普通分组和搜索结果中标识已加入「我的收藏」的书签；「我的收藏」视图内不重复标星
     const showFavMark =
       state.favorites.includes(it.id) &&
-      (state.filter === 'search' || state.view.topId !== '__favorites__');
+      (state.filter === 'search' || state.view.folderId !== '__favorites__');
     if (showFavMark) {
       const mark = el('span', 'fav-mark');
       mark.title = '已加入「我的收藏」';
@@ -474,7 +543,7 @@
         editor.endDrag();
         a.classList.remove('dragging');
       });
-      const canReorderCard = state.filter !== 'search' && state.view.topId !== '__favorites__';
+      const canReorderCard = state.filter !== 'search' && state.view.folderId !== '__favorites__';
       a.addEventListener('dragover', (e) => {
         const drag = editor.getDrag();
         if (!canReorderCard || !drag.id || drag.isFolder || drag.id === it.id) return;
@@ -504,7 +573,7 @@
     if (state.filter === 'search') {
       els.emptyT.textContent = '没有匹配的书签';
       els.emptyS.append(document.createTextNode('按 '), el('kbd', '', 'Esc'), document.createTextNode(' 清空搜索，或换个关键词试试'));
-    } else if (state.view.topId === '__favorites__') {
+    } else if (state.view.folderId === '__favorites__') {
       els.emptyT.textContent = '还没有收藏的书签';
       els.emptyS.textContent = '在任意书签上右键选择「收藏」，即可固定到这里';
     } else {
@@ -571,7 +640,6 @@
     const hasQuery = state.q.length > 0;
     if (els.search) els.search.classList.toggle('has-q', hasQuery);
     if (els.searchClear) els.searchClear.hidden = !hasQuery;
-    if (els.newFolder) els.newFolder.disabled = !editor.canEdit || !currentFolderId() || state.filter === 'search';
     renderNav();
     renderBc(view.crumb, view.hits);
     renderRows(view);
@@ -584,34 +652,30 @@
     else location.href = url;
   }
 
-  function selectTop(id, toggle = false) {
+  function selectFolder(id, toggle = false) {
     if (id === '__favorites__') {
-      state.view = { topId: id, subId: '' };
+      state.view = { folderId: '__favorites__' };
       state.q = '';
       els.q.value = '';
       persistView();
       render();
       return;
     }
-    const top = findTop(id);
-    if (!top) return;
-    const already = !state.view.subId && state.view.topId === id;
-    if (toggle && already && top.children.length) {
+    const folder = findFolder(id);
+    if (!folder) return;
+
+    const chain = ancestorChain(id);
+    for (let i = 0; i < chain.length - 1; i += 1) state.expanded.add(chain[i].id);
+
+    const already = state.view.folderId === id;
+    if (toggle && already && folder.children.length) {
       if (state.expanded.has(id)) state.expanded.delete(id);
       else state.expanded.add(id);
-    } else {
+    } else if (folder.children.length) {
       state.expanded.add(id);
     }
-    state.view = { topId: id, subId: '' };
-    state.q = '';
-    els.q.value = '';
-    persistView();
-    render();
-  }
 
-  function selectSub(topId, subId) {
-    state.view = { topId, subId };
-    state.expanded.add(topId);
+    state.view = { folderId: id };
     state.q = '';
     els.q.value = '';
     persistView();
@@ -619,9 +683,7 @@
   }
 
   function openFolder(id) {
-    const hit = findSub(id);
-    if (hit) selectSub(hit.top.id, id);
-    else if (findTop(id)) selectTop(id);
+    selectFolder(id, false);
   }
 
   function moveSel(delta) {
@@ -654,13 +716,17 @@
   }
 
   els.nav.addEventListener('click', (e) => {
-    const sub = e.target.closest('.n-sub');
-    if (sub) {
-      selectSub(sub.dataset.top, sub.dataset.sub);
+    if (e.target.closest('.n-add')) {
+      editor.createDialog(state.resolvedRootId || state.rootId, '新建一级分组');
       return;
     }
-    const top = e.target.closest('.n-item');
-    if (top) selectTop(top.dataset.top, true);
+    const subAdd = e.target.closest('.n-item-add');
+    if (subAdd) {
+      editor.createDialog(subAdd.dataset.addSub, '新建子分组');
+      return;
+    }
+    const target = e.target.closest('[data-folder]');
+    if (target) selectFolder(target.dataset.folder, true);
   });
 
   els.q.addEventListener('input', () => {
@@ -675,10 +741,6 @@
       render();
       focusSearch();
     });
-  }
-
-  if (els.newFolder) {
-    els.newFolder.addEventListener('click', () => editor.createDialog(currentFolderId()));
   }
 
   els.themeBtn.addEventListener('click', () => {
@@ -721,8 +783,9 @@
         render();
       } else if (typing) {
         els.q.blur();
-      } else if (state.view.subId) {
-        selectTop(state.view.topId);
+      } else {
+        const cur = findFolder(state.view.folderId);
+        if (cur && findFolder(cur.parentId)) selectFolder(cur.parentId);
       }
       return;
     }
@@ -760,10 +823,11 @@
 
     if (state.expanded.size === 0) {
       state.view = defaultView();
-      if (state.view.topId) state.expanded.add(state.view.topId);
-    } else {
-      if (state.view.subId && !findSub(state.view.subId)) state.view.subId = '';
-      if (!findTop(state.view.topId) && state.view.topId !== '__favorites__') state.view = defaultView();
+      if (state.view.folderId && state.view.folderId !== '__favorites__') {
+        state.expanded.add(state.view.folderId);
+      }
+    } else if (state.view.folderId !== '__favorites__' && !findFolder(state.view.folderId)) {
+      state.view = defaultView();
     }
     render();
   }
@@ -778,7 +842,11 @@
         theme: prefs.theme || DEFAULTS.theme,
         font: prefs.font || DEFAULTS.font,
       });
-      if (prefs.view && prefs.view.topId) state.view = { ...prefs.view };
+      if (prefs.view) {
+        // 兼容旧版 { topId, subId } 持久化结构
+        const fid = prefs.view.folderId || prefs.view.subId || prefs.view.topId || '';
+        if (fid) state.view = { folderId: fid };
+      }
       if (Array.isArray(prefs.expanded)) state.expanded = new Set(prefs.expanded);
       if (Array.isArray(prefs.favorites)) state.favorites = prefs.favorites.filter((id) => typeof id === 'string');
     } catch {

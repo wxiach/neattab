@@ -161,14 +161,6 @@
     return val;
   }
 
-  function collectLinks(node, out) {
-    for (const c of node.children || []) {
-      if (c.url && !/^javascript:/i.test(c.url)) out.push(c);
-      else if (!c.url) collectLinks(c, out);
-    }
-    return out;
-  }
-
   function buildFolders(rootNode) {
     const list = [
       {
@@ -180,32 +172,26 @@
         items: (rootNode.children || []).filter((c) => c.url && !/^javascript:/i.test(c.url)),
       },
     ];
-    for (const top of rootNode.children || []) {
-      if (top.url) continue;
-      const topTitle = (top.title || '未命名').trim();
-      const topDirect = (top.children || []).filter((c) => c.url && !/^javascript:/i.test(c.url));
-      const subs = (top.children || []).filter((c) => !c.url);
-      list.push({
-        id: top.id,
-        title: topTitle,
-        pathLabel: topTitle,
-        depth: 1,
-        hasChildren: subs.length > 0,
-        items: subs.length ? topDirect : collectLinks(top, []),
-      });
-      for (const sub of subs) {
-        const subTitle = (sub.title || '未命名').trim();
+    const walk = (node, depth, prefix) => {
+      for (const child of node.children || []) {
+        if (child.url) continue;
+        const title = (child.title || '未命名').trim();
+        const pathLabel = prefix ? `${prefix} / ${title}` : title;
+        const direct = (child.children || []).filter((c) => c.url && !/^javascript:/i.test(c.url));
+        const subs = (child.children || []).filter((c) => !c.url);
         list.push({
-          id: sub.id,
-          title: subTitle,
-          parentTitle: topTitle,
-          pathLabel: `${topTitle} / ${subTitle}`,
-          depth: 2,
-          hasChildren: false,
-          items: collectLinks(sub, []),
+          id: child.id,
+          title,
+          parentTitle: prefix,
+          pathLabel,
+          depth,
+          hasChildren: subs.length > 0,
+          items: direct,
         });
+        if (subs.length) walk(child, depth + 1, pathLabel);
       }
-    }
+    };
+    walk(rootNode, 1, '');
     return list;
   }
 

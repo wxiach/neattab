@@ -166,6 +166,7 @@
     async function doCreate(parentId, title) {
       try {
         await chrome.bookmarks.create({ parentId, title });
+        if (state.expanded) state.expanded.add(parentId);
       } catch {
         /* 忽略 */
       }
@@ -186,6 +187,25 @@
         /* 忽略 */
       }
       dragId = '';
+      dragIsFolder = false;
+      await loadBookmarks();
+    }
+
+    async function doMoveRelative(id, targetId, position) {
+      if (!id || !targetId || id === targetId) return;
+      try {
+        const [src] = await chrome.bookmarks.get(id);
+        const [dst] = await chrome.bookmarks.get(targetId);
+        if (!src || !dst) return;
+        if (!src.url && (await isInside(dst.parentId, id))) return;
+        // Chromium 按移除前空隙坐标计算：插入到 dst 前恒为 dst.index，插入到 dst 后恒为 dst.index + 1
+        const index = position === 'after' ? dst.index + 1 : dst.index;
+        await chrome.bookmarks.move(id, { parentId: dst.parentId, index });
+      } catch {
+        /* 忽略 */
+      }
+      dragId = '';
+      dragIsFolder = false;
       await loadBookmarks();
     }
 
@@ -256,12 +276,12 @@
       });
     }
 
-    function createDialog(parentId) {
+    function createDialog(parentId, title = '新建分组') {
       if (!parentId) return;
       const input = el('input', 'dlg-input');
       input.placeholder = '新分组名称';
       openDialog({
-        title: '新建分组',
+        title,
         body: input,
         confirmText: '创建',
         focus: input,
@@ -284,7 +304,9 @@
         '-',
         { label: '删除', danger: true, run: () => deleteDialog(node) },
       );
-      if (node.isFolder) items.splice(1, 0, { label: '新建子分组', run: () => createDialog(node.id) });
+      if (node.isFolder) {
+        items.splice(1, 0, { label: '新建子分组', run: () => createDialog(node.id, '新建子分组') });
+      }
       openMenu(x, y, items);
     }
 
@@ -304,6 +326,7 @@
       createDialog,
       doMove,
       doMoveBefore,
+      doMoveRelative,
       getDrag: () => ({ id: dragId, isFolder: dragIsFolder }),
       startDrag: (id, isFolder, e) => {
         dragId = id;

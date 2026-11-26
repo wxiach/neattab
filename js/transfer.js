@@ -2,7 +2,7 @@
 
 /**
  * NAV — 书签 JSON 导入导出模块（newtab 设置弹窗与独立 options 页共用）
- * - 导出精简两级 JSON（含按 URL 映射的 favorites），便于备份或交由 AI 整理
+ * - 导出精简多级 JSON（含按 URL 映射的 favorites），便于备份或交由 AI 整理
  * - 导入支持选文件或直接粘贴（自动剥离 Markdown 代码块），按数组顺序串行写入
  * - 替换模式先自动下载备份，并复用已有 URL 节点移动，无损保留原有收藏时间与顺序
  */
@@ -26,11 +26,15 @@
     }
   }
 
-  function collectExportItems(node, out) {
+  function exportFolder(node, depth) {
+    const items = [];
+    const children = [];
     for (const c of node.children || []) {
-      if (isLink(c)) out.push({ title: (c.title || '').trim() || hostOf(c.url), url: c.url });
-      else if (!c.url) collectExportItems(c, out);
+      if (isLink(c)) items.push({ title: (c.title || '').trim() || hostOf(c.url), url: c.url });
+      else if (!c.url) children.push(exportFolder(c, depth + 1));
     }
+    const out = { title: (node.title || '未命名').trim(), items };
+    if (depth === 1 || children.length > 0) out.children = children;
     return out;
   }
 
@@ -55,22 +59,7 @@
         continue;
       }
       if (child.url) continue;
-      const folder = {
-        title: (child.title || '未命名').trim(),
-        items: [],
-        children: [],
-      };
-      for (const sub of child.children || []) {
-        if (isLink(sub)) {
-          folder.items.push({ title: (sub.title || '').trim() || hostOf(sub.url), url: sub.url });
-        } else if (!sub.url) {
-          folder.children.push({
-            title: (sub.title || '未命名').trim(),
-            items: collectExportItems(sub, []),
-          });
-        }
-      }
-      folders.push(folder);
+      folders.push(exportFolder(child, 1));
     }
 
     return {
@@ -139,17 +128,6 @@
       return { title, url };
     };
 
-    const flattenDeepItems = (node, out) => {
-      for (const it of Array.isArray(node.items) ? node.items : []) {
-        const clean = normItem(it);
-        if (clean) out.push(clean);
-      }
-      for (const ch of Array.isArray(node.children) ? node.children : []) {
-        if (ch && typeof ch === 'object') flattenDeepItems(ch, out);
-      }
-      return out;
-    };
-
     const loose = [];
     for (const it of Array.isArray(obj.loose) ? obj.loose : []) {
       const clean = normItem(it);
@@ -160,25 +138,27 @@
     let subCount = 0;
     let itemCount = loose.length;
 
-    for (const f of Array.isArray(obj.folders) ? obj.folders : []) {
-      if (!f || typeof f !== 'object') continue;
-      const topTitle = String(f.title || '').trim() || '未命名';
+    const parseFolder = (node, depth) => {
+      if (!node || typeof node !== 'object') return null;
+      const title = String(node.title || '').trim() || '未命名';
       const items = [];
-      for (const it of Array.isArray(f.items) ? f.items : []) {
+      for (const it of Array.isArray(node.items) ? node.items : []) {
         const clean = normItem(it);
         if (clean) items.push(clean);
       }
       const children = [];
-      for (const ch of Array.isArray(f.children) ? f.children : []) {
-        if (!ch || typeof ch !== 'object') continue;
-        const subTitle = String(ch.title || '').trim() || '未命名';
-        const subItems = flattenDeepItems(ch, []);
-        children.push({ title: subTitle, items: subItems });
-        subCount += 1;
-        itemCount += subItems.length;
+      for (const ch of Array.isArray(node.children) ? node.children : []) {
+        const sub = parseFolder(ch, depth + 1);
+        if (sub) children.push(sub);
       }
+      if (depth >= 2) subCount += 1;
       itemCount += items.length;
-      folders.push({ title: topTitle, items, children });
+      return { title, items, children };
+    };
+
+    for (const f of Array.isArray(obj.folders) ? obj.folders : []) {
+      const top = parseFolder(f, 1);
+      if (top) folders.push(top);
     }
 
     const hasFavorites = Array.isArray(obj.favorites);
@@ -222,31 +202,22 @@
     const rootNode = findNode(treeRoot, rootId) || (treeRoot.children || [])[0];
     if (!rootNode) throw new Error('未找到目标目录');
 
+    const createTree = async (parentId, folderList, placeFn) => {
+      for (const f of folderList) {
+        const created = await chrome.bookmarks.create({ parentId, title: f.title });
+        for (const it of f.items) await placeFn(created.id, it);
+        if (f.children && f.children.length) await createTree(created.id, f.children, placeFn);
+      }
+    };
+
     if (mode === 'append') {
       const d = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       const wrapTitle = `导入整理 ${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
       const wrap = await chrome.bookmarks.create({ parentId: rootNode.id, title: wrapTitle });
-      for (const it of parsedData.loose) {
-        await chrome.bookmarks.create({ parentId: wrap.id, title: it.title, url: it.url });
-      }
-      for (const top of parsedData.folders) {
-        if (top.items.length || !top.children.length) {
-          const sf = await chrome.bookmarks.create({ parentId: wrap.id, title: top.title });
-          for (const it of top.items) {
-            await chrome.bookmarks.create({ parentId: sf.id, title: it.title, url: it.url });
-          }
-        }
-        for (const sub of top.children) {
-          const sf = await chrome.bookmarks.create({
-            parentId: wrap.id,
-            title: `${top.title} · ${sub.title}`,
-          });
-          for (const it of sub.items) {
-            await chrome.bookmarks.create({ parentId: sf.id, title: it.title, url: it.url });
-          }
-        }
-      }
+      const createLink = (parentId, it) => chrome.bookmarks.create({ parentId, title: it.title, url: it.url });
+      for (const it of parsedData.loose) await createLink(wrap.id, it);
+      await createTree(wrap.id, parsedData.folders, createLink);
       return { mode: 'append', wrapTitle };
     }
 
@@ -277,19 +248,12 @@
       return id;
     };
 
-    // 阶段 1：在临时目录内按 JSON 精确顺序构建全部新结构
+    // 阶段 1：在临时目录内按 JSON 精确顺序递归构建全部新结构
     const tmp = await chrome.bookmarks.create({ parentId: rootNode.id, title: '_neattab_import_tmp_' });
     for (const it of parsedData.loose) {
       await placeItem(tmp.id, it);
     }
-    for (const top of parsedData.folders) {
-      const tf = await chrome.bookmarks.create({ parentId: tmp.id, title: top.title });
-      for (const it of top.items) await placeItem(tf.id, it);
-      for (const sub of top.children) {
-        const sf = await chrome.bookmarks.create({ parentId: tf.id, title: sub.title });
-        for (const it of sub.items) await placeItem(sf.id, it);
-      }
-    }
+    await createTree(tmp.id, parsedData.folders, placeItem);
 
     // 阶段 2：清理原目录中除临时目录外的旧节点
     const [treeAfterStage] = await chrome.bookmarks.getTree();
