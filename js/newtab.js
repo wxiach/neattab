@@ -806,6 +806,11 @@
     els.empty.hidden = !empty;
     els.rows.hidden = empty;
     if (empty) renderEmptyState();
+    else if (state.filter === 'search') {
+      state.sel = 0;
+      const first = els.rows.querySelector('[data-i="0"]');
+      if (first) first.classList.add('sel');
+    }
   }
 
   function render() {
@@ -860,9 +865,15 @@
     selectFolder(id, false);
   }
 
-  function moveSel(delta) {
-    if (!state.rows.length) return;
-    const next = Math.min(state.rows.length - 1, Math.max(0, state.sel + delta));
+  function moveSel(delta, wrap = false) {
+    const len = state.rows.length;
+    if (!len) return;
+    let next;
+    if (wrap) {
+      next = state.sel < 0 ? (delta > 0 ? 0 : len - 1) : (state.sel + delta + len) % len;
+    } else {
+      next = Math.min(len - 1, Math.max(0, state.sel + delta));
+    }
     if (next === state.sel) return;
     const old = state.sel >= 0 ? els.rows.querySelector(`[data-i="${state.sel}"]`) : null;
     if (old) old.classList.remove('sel');
@@ -961,6 +972,11 @@
         const cur = findFolder(state.view.folderId);
         if (cur && findFolder(cur.parentId)) selectFolder(cur.parentId);
       }
+      return;
+    }
+    if (e.key === 'Tab' && state.filter === 'search' && state.rows.length) {
+      e.preventDefault();
+      moveSel(e.shiftKey ? -1 : 1, true);
       return;
     }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
