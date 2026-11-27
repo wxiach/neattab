@@ -196,10 +196,13 @@ body {
 .slash {
   flex: none;
   margin: 0;
-  padding: 2px 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   font-size: var(--fs-meta);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line2);
   background: var(--surface);
+  box-shadow: var(--kbd-shadow);
   color: var(--ink3);
 }
 
@@ -589,10 +592,15 @@ body.is-dragging .side-foot .footbtn {
 }
 
 .ops-bar kbd {
-  padding: 1px 5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin: 0;
   font-size: var(--fs-meta);
-  border: 1px solid var(--line);
+  font-weight: 500;
+  border: 1px solid var(--line2);
   background: var(--surface);
+  box-shadow: var(--kbd-shadow);
   color: var(--ink2);
 }
 
@@ -1037,11 +1045,11 @@ body.is-dragging .trash-zone {
   margin-top: 18px;
 }
 
-/* ---------- 偏好设置弹窗 ---------- */
+/* ---------- 系统设置弹窗 ---------- */
 
 .settings-dlg {
   width: min(var(--dlg-settings-w), calc(100% - 32px));
-  height: min(490px, calc(100vh - 56px));
+  height: min(504px, calc(100vh - 56px));
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -1060,13 +1068,13 @@ body.is-dragging .trash-zone {
 
 .sdlg-head-l {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
 }
 
 .sver {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink3);
 }
 
@@ -1149,6 +1157,10 @@ body.is-dragging .trash-zone {
   font-weight: 600;
 }
 
+.sfield.is-text .slabel .sname {
+  padding-top: 2px;
+}
+
 .scontrol {
   min-width: 0;
 }
@@ -1158,23 +1170,65 @@ body.is-dragging .trash-zone {
 }
 
 .shint {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--ink3);
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink2);
 }
 
-.shint.tight {
-  margin-top: 4px;
+.shint + .shint {
+  margin-top: 6px;
 }
 
-.shint code {
+.shint kbd {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin: 0 2px;
+  font-size: 11px;
+  vertical-align: 1px;
+}
+
+.slead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.68;
+  color: var(--ink);
+}
+
+.sperm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sperm-list li {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+.sperm-list code {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
   font-family: var(--mono);
   font-size: 11px;
-  padding: 1px 5px;
+  font-weight: 500;
+  line-height: 1;
   border: 1px solid var(--line2);
   background: var(--bg);
-  color: var(--ink2);
+  box-shadow: var(--badge-shadow);
+  color: var(--ink);
 }
 
 .sdlg-foot {
@@ -1328,6 +1382,13 @@ body.is-dragging .trash-zone {
     height: 11px;
   }
 
+  .slash,
+  .ops-bar kbd {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+  }
+
   .n-item .n,
   .n-sub .n {
     padding: 2px 7px;
@@ -1353,6 +1414,21 @@ body.is-dragging .trash-zone {
   .cell.folder .go svg {
     width: 14px;
     height: 14px;
+  }
+
+  .slabel .sname,
+  .stab,
+  .slead {
+    font-size: 14px;
+  }
+
+  .shint,
+  .sperm-list li {
+    font-size: 13.5px;
+  }
+
+  .sperm-list li {
+    grid-template-columns: 112px minmax(0, 1fr);
   }
 }
 
@@ -1420,6 +1496,13 @@ body.is-dragging .trash-zone {
     left: calc(var(--nav-indent-base) + var(--depth-off, 0) * var(--nav-indent-step) - 26px);
     width: 12px;
     height: 12px;
+  }
+
+  .slash,
+  .ops-bar kbd {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
   }
 
   .brand-ico svg,
@@ -1603,6 +1686,11 @@ body.is-dragging .trash-zone {
 
   .slabel .sname {
     padding-top: 0;
+  }
+
+  .sperm-list li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
   }
 }
 

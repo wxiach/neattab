@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>NeatTab · 设置</title>
+    <title>NeatTab · 系统设置</title>
     <link rel="icon" type="image/png" sizes="32x32" href="icons/32.png" />
     <link rel="stylesheet" href="styles/tokens.css" />
     <link rel="stylesheet" href="styles/controls.css" />
@@ -22,9 +22,9 @@
           <span>NeatTab</span>
         </span>
         <span class="vr" aria-hidden="true"></span>
-        <span class="coll">设置</span>
+        <span class="coll">系统设置</span>
         <div class="topbar-right">
-          <span class="ver" id="ver">v0.1.0</span>
+          <span class="ver" id="ver"></span>
           <a class="backbtn" id="back" href="newtab.html" title="返回新标签页（Esc）">
             <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
               <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/>
@@ -37,7 +37,7 @@
 
     <main class="opt-main">
       <div class="opt-head">
-        <h1>设置</h1>
+        <h1>系统设置</h1>
         <p class="sub">改动即时生效，无需手动保存。</p>
       </div>
 
@@ -51,7 +51,7 @@
               <button type="button" data-value="light">浅色</button>
               <button type="button" data-value="dark">深色</button>
             </div>
-            <p class="hint">中性灰画布 + 直角独立白卡片；深色模式采用温润深炭灰配色。</p>
+            <p class="hint">中性灰画布搭配直角卡片，深色模式采用低眩光炭灰配色。</p>
           </div>
         </section>
 
@@ -68,7 +68,7 @@
                 <div class="font-list" id="font-list" role="listbox" aria-label="本机系统字体"></div>
               </div>
             </div>
-            <p class="hint">直接读取本机已安装字体，支持搜索，选中后即时预览。</p>
+            <p class="hint">读取本机已安装字体，支持搜索，选中后实时生效。</p>
           </div>
         </section>
 
@@ -79,7 +79,7 @@
               <button type="button" data-value="tab">新标签页</button>
               <button type="button" data-value="same">当前标签页</button>
             </div>
-            <p class="hint">按住 Ctrl / ⌘ 点击，或中键点击，始终在新标签打开。</p>
+            <p class="hint">按住 <kbd>Ctrl</kbd> / <kbd>⌘</kbd> 或中键点击，始终在新标签页打开。</p>
           </div>
         </section>
       </div>
@@ -92,7 +92,7 @@
             <div class="select-wrap">
               <select id="root" aria-label="数据来源"></select>
             </div>
-            <p class="hint">新标签页只展示这个目录里的书签。默认读取 Edge 的「收藏夹栏」。</p>
+            <p class="hint">新标签页仅展示所选目录中的书签，默认读取「收藏夹栏」。</p>
           </div>
         </section>
 
@@ -103,20 +103,32 @@
               <button class="btn ghost" id="export-btn" type="button">导出</button>
               <button class="btn ghost" id="import-btn" type="button">导入</button>
             </div>
-            <p class="hint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
+            <p class="hint">导出精简 JSON，方便备份或交由 AI 整理分类。</p>
+            <p class="hint">导入支持选择文件或直接粘贴，替换前自动备份并严格保持顺序。</p>
           </div>
         </section>
       </div>
 
       <h2 class="cat-title">关于与权限</h2>
       <div class="sheet">
-        <section class="field">
-          <div class="label"><span class="name">权限与隐私</span></div>
+        <section class="field is-text">
+          <div class="label"><span class="name">隐私说明</span></div>
           <div class="control">
-            <p class="hint tight">
-              只申请 <code>bookmarks</code>、<code>storage</code>、<code>favicon</code>、<code>activeTab</code> 与 <code>fontSettings</code>：读写收藏夹（仅显式编辑/收藏写入）、存本地偏好与分类样本、取本地站点图标、点击扩展图标读取当前页信息以及列出本机系统字体。不读历史、不联网。
-            </p>
-            <p class="hint tight">书签变化时，已打开的新标签页会自动刷新。</p>
+            <p class="lead">所有书签整理与分类运算均在本地完成，不读取浏览历史，不发起任何网络请求。</p>
+            <p class="hint">书签变化时，已打开的新标签页会自动同步刷新。</p>
+          </div>
+        </section>
+
+        <section class="field is-text">
+          <div class="label"><span class="name">扩展权限</span></div>
+          <div class="control">
+            <ul class="perm-list">
+              <li><code>bookmarks</code><span>读写浏览器收藏夹（仅在编辑、拖拽或收藏时写入）</span></li>
+              <li><code>storage</code><span>保存本地设置、星标收藏与分类纠错样本</span></li>
+              <li><code>favicon</code><span>读取浏览器本地站点图标缓存</span></li>
+              <li><code>activeTab</code><span>点击工具栏图标时读取当前页标题与网址</span></li>
+              <li><code>fontSettings</code><span>列出本机已安装的系统字体</span></li>
+            </ul>
           </div>
         </section>
       </div>

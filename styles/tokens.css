@@ -21,6 +21,8 @@
   --blue-line: rgba(37, 99, 235, 0.36);
 
   --amber: #d97706;
+  --amber-soft: rgba(217, 119, 6, 0.1);
+  --amber-line: rgba(217, 119, 6, 0.3);
   --danger: #dc2626;
   --danger-hover: #b91c1c;
 
@@ -33,6 +35,8 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --kbd-shadow: 0 1px 0 var(--line2);
+  --badge-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
   color-scheme: light;
 }
@@ -55,12 +59,16 @@
   --blue-line: rgba(96, 165, 250, 0.42);
 
   --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, 0.14);
+  --amber-line: rgba(251, 191, 36, 0.34);
   --danger: #f87171;
   --danger-hover: #ef4444;
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --kbd-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.45);
+  --badge-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.28);
 
   color-scheme: dark;
 }
@@ -106,15 +114,24 @@ mark {
   border-radius: 0;
 }
 
+/* 对齐 coss ui <Kbd>：等宽轻量键帽 + 细描边 + 微浮雕底影 */
 kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin: 0 2px;
   font-family: var(--mono);
   font-size: 11px;
+  font-weight: 500;
   line-height: 1;
   color: var(--ink2);
   border: 1px solid var(--line2);
   border-radius: var(--r-xs);
-  padding: 3px 6px;
-  margin: 0 2px;
-  white-space: nowrap;
   background: var(--surface);
+  box-shadow: var(--kbd-shadow);
+  white-space: nowrap;
+  user-select: none;
 }
