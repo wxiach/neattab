@@ -269,7 +269,7 @@
     // 「阅读清单」先按站点分段，站点内部按收藏时间由新到旧排序
     if (READING_FOLDER_RE.test(folder.title) && folder.children.length === 0) {
       const rows = buildReadingRows(folder.items);
-      return { rows, group: rows.length > 0, crumb };
+      return { rows, group: rows.length > 0, reading: true, crumb };
     }
 
     // 二级分类下存在三级目录时，直接按三级分类平铺分段展示（无需再钻取一层）
@@ -312,7 +312,19 @@
     render();
   }
 
-  const editor = window.NAV.createEditor({ state, loadBookmarks });
+  let openTimer = 0;
+
+  const editor = window.NAV.createEditor({
+    state,
+    loadBookmarks,
+    onFolderCreated: (parentId) => {
+      // 在二级目录下新建三级分类时，自动切换到该二级视图让用户立刻看到新分类
+      const parent = findFolder(parentId);
+      if (parent && parent.depth >= 2 && state.view.folderId !== parent.id) {
+        selectFolder(parent.id);
+      }
+    },
+  });
   const settingsModal = window.NAV.createSettingsModal({
     state,
     savePrefs,
@@ -396,7 +408,7 @@
   function renderNavBranch(folder, activeAncestors) {
     const frag = document.createDocumentFragment();
     const isTop = folder.depth === 1;
-    // 左侧目录树最多展示到二级；三级及更深目录通过右侧子分组卡片与面包屑浏览
+    // 左侧目录树最多展示到二级；三级及更深目录在二级视图内按分类平铺展示
     const canExpand = isTop && folder.children.length > 0;
     const open = canExpand && (state.expanded.has(folder.id) || activeAncestors.has(folder.id));
     const isActive =
@@ -503,7 +515,7 @@
     return head;
   }
 
-  function cellNode(it, i) {
+  function cellNode(it, i, canReorderCard = true) {
     if (it.kind === 'folder') {
       const cell = el('button', 'cell folder');
       cell.type = 'button';
@@ -592,7 +604,6 @@
       a.append(favBtn);
     }
 
-    let openTimer = 0;
     a.addEventListener('click', (e) => {
       if (e.target.closest('.fav-btn')) return;
       if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -617,7 +628,6 @@
         e.preventDefault();
         editor.editDialog({ id: it.id, title: it.title, url: it.url, isFolder: false });
       });
-      const canReorderCard = state.filter !== 'search' && state.view.folderId !== '__favorites__';
       a.addEventListener('dragover', (e) => {
         const drag = editor.getDrag();
         if (!canReorderCard || !drag.id || drag.isFolder || drag.id === it.id) return;
@@ -733,6 +743,8 @@
     state.rows = view.rows;
     state.sel = -1;
 
+    const canReorder =
+      state.filter !== 'search' && state.view.folderId !== '__favorites__' && !view.reading;
     const frag = document.createDocumentFragment();
     if (Array.isArray(view.sections)) {
       let idx = 0;
@@ -743,7 +755,7 @@
         if (sec.items.length) {
           const bucket = el('div', 'grid');
           for (const it of sec.items) {
-            bucket.append(cellNode(it, idx));
+            bucket.append(cellNode(it, idx, canReorder));
             idx += 1;
           }
           frag.append(bucket);
@@ -797,7 +809,7 @@
         bucketKind = kind;
         frag.append(bucket);
       }
-      bucket.append(cellNode(it, i));
+      bucket.append(cellNode(it, i, canReorder));
     });
 
     els.rows.replaceChildren(frag);
@@ -831,6 +843,7 @@
   }
 
   function selectFolder(id, toggle = false) {
+    clearTimeout(openTimer);
     if (id === '__favorites__') {
       state.view = { folderId: '__favorites__' };
       state.q = '';
@@ -979,15 +992,8 @@
       moveSel(e.shiftKey ? -1 : 1, true);
       return;
     }
-    if (e.key === 'F2' && !inField && editor.canEdit && state.sel >= 0) {
-      const it = state.rows[state.sel];
-      if (it && it.id) {
-        e.preventDefault();
-        editor.editDialog({ id: it.id, title: it.title, url: it.url, isFolder: it.kind === 'folder' });
-      }
-      return;
-    }
-    if (e.key === 'Enter' && (state.sel >= 0 || (typing && state.rows.length))) {
+    const onInteractive = e.target && e.target.closest && !!e.target.closest('button, a');
+    if (e.key === 'Enter' && state.filter === 'search' && state.rows.length && (typing || (!inField && !onInteractive))) {
       e.preventDefault();
       activateSel(e.ctrlKey || e.metaKey);
     }
@@ -1066,13 +1072,29 @@
       });
     }
     let timer = 0;
-    for (const ev of ['onCreated', 'onRemoved', 'onChanged', 'onMoved']) {
-      if (chrome.bookmarks[ev]) {
-        chrome.bookmarks[ev].addListener(() => {
-          clearTimeout(timer);
-          timer = setTimeout(loadBookmarks, 150);
-        });
-      }
+    const scheduleReload = () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadBookmarks, 150);
+    };
+    const collectRemovedIds = (node, out) => {
+      if (!node) return;
+      if (node.id) out.add(node.id);
+      for (const c of node.children || []) collectRemovedIds(c, out);
+    };
+    if (chrome.bookmarks.onRemoved) {
+      chrome.bookmarks.onRemoved.addListener((id, removeInfo) => {
+        const gone = new Set([id]);
+        if (removeInfo && removeInfo.node) collectRemovedIds(removeInfo.node, gone);
+        const nextFavs = state.favorites.filter((fid) => !gone.has(fid));
+        if (nextFavs.length !== state.favorites.length) {
+          state.favorites = nextFavs;
+          savePrefs({ favorites: nextFavs });
+        }
+        scheduleReload();
+      });
+    }
+    for (const ev of ['onCreated', 'onChanged', 'onMoved']) {
+      if (chrome.bookmarks[ev]) chrome.bookmarks[ev].addListener(scheduleReload);
     }
   }
 

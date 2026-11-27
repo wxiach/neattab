@@ -15,7 +15,7 @@
     }
   }
 
-  window.NAV.createEditor = ({ state, loadBookmarks }) => {
+  window.NAV.createEditor = ({ state, loadBookmarks, onFolderCreated }) => {
     const canEdit =
       hasExt && !!chrome.bookmarks.update && !!chrome.bookmarks.removeTree && !!chrome.bookmarks.create;
 
@@ -150,15 +150,16 @@
     }
 
     async function doMove(id, parentId) {
-      if (!id || !parentId || id === parentId) return;
       try {
+        if (!id || !parentId || id === parentId) return;
         const [src] = await chrome.bookmarks.get(id);
         if (src && !src.url && (await isInside(parentId, id))) return;
         await chrome.bookmarks.move(id, { parentId });
       } catch {
         /* 忽略 */
+      } finally {
+        resetDrag();
       }
-      resetDrag();
       await loadBookmarks();
     }
 
@@ -170,6 +171,7 @@
         /* 忽略 */
       }
       await loadBookmarks();
+      if (typeof onFolderCreated === 'function') onFolderCreated(parentId);
     }
 
     async function doMoveBefore(id, targetId) {
@@ -184,14 +186,15 @@
         await chrome.bookmarks.move(id, { parentId: dst.parentId, index });
       } catch {
         /* 忽略 */
+      } finally {
+        resetDrag();
       }
-      resetDrag();
       await loadBookmarks();
     }
 
     async function doMoveRelative(id, targetId, position) {
-      if (!id || !targetId || id === targetId) return;
       try {
+        if (!id || !targetId || id === targetId) return;
         const [src] = await chrome.bookmarks.get(id);
         const [dst] = await chrome.bookmarks.get(targetId);
         if (!src || !dst) return;
@@ -201,8 +204,9 @@
         await chrome.bookmarks.move(id, { parentId: dst.parentId, index });
       } catch {
         /* 忽略 */
+      } finally {
+        resetDrag();
       }
-      resetDrag();
       await loadBookmarks();
     }
 

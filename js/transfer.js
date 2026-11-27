@@ -185,13 +185,15 @@
     };
   }
 
-  function indexExistingBookmarks(node, pool) {
+  function indexExistingBookmarks(node, pool, nonHttp) {
     for (const c of node.children || []) {
       if (isLink(c)) {
         if (!pool.has(c.url)) pool.set(c.url, []);
         pool.get(c.url).push(c);
-      } else if (!c.url) {
-        indexExistingBookmarks(c, pool);
+      } else if (c.url) {
+        if (nonHttp) nonHttp.push(c);
+      } else {
+        indexExistingBookmarks(c, pool, nonHttp);
       }
     }
   }
@@ -225,9 +227,10 @@
     const backup = buildExportData(rootNode, currentFavorites);
     downloadJson(backup, `neattab-backup-${dateStamp(true)}.json`);
 
-    // 建立已有书签池：优先 move 复用原节点，无损保留 dateAdded 与书签 ID
+    // 建立已有书签池：优先 move 复用原节点，无损保留 dateAdded 与书签 ID；同时保全非 http/https 节点（如 edge:// 与小书签脚本）
     const pool = new Map();
-    indexExistingBookmarks(rootNode, pool);
+    const preservedNonHttp = [];
+    indexExistingBookmarks(rootNode, pool, preservedNonHttp);
 
     const urlToId = new Map();
     const placeItem = async (parentId, item) => {
@@ -254,6 +257,10 @@
       await placeItem(tmp.id, it);
     }
     await createTree(tmp.id, parsedData.folders, placeItem);
+    // 保留原有的非 http/https 书签（如浏览器内建页或小书签），避免替换阶段误删
+    for (const special of preservedNonHttp) {
+      await chrome.bookmarks.move(special.id, { parentId: tmp.id });
+    }
 
     // 阶段 2：清理原目录中除临时目录外的旧节点
     const [treeAfterStage] = await chrome.bookmarks.getTree();

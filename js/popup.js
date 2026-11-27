@@ -191,8 +191,11 @@
     const selectedVal = els.folderSelect.value;
     if (!selectedVal) return;
 
-    const finalUrl =
-      ctx.urlInfo && ctx.urlInfo.trimHash && els.cleanHashToggle.checked ? ctx.urlInfo.cleanUrl : ctx.tab.url;
+    let finalUrl = ctx.existing ? ctx.existing.url : ctx.tab.url;
+    if (!els.cleanHashRow.hidden && els.cleanHashToggle.checked) {
+      const targetInfo = ctx.existing ? parseUrl(ctx.existing.url) : ctx.urlInfo;
+      if (targetInfo && targetInfo.trimHash) finalUrl = targetInfo.cleanUrl;
+    }
 
     els.saveBtn.disabled = true;
     try {
@@ -382,8 +385,9 @@
     els.kindTag.classList.toggle('is-content', ctx.pageKind.kind === 'content');
     els.kindTag.hidden = false;
 
-    if (urlInfo.trimHash) {
-      els.cleanHashLabel.textContent = `去掉锚点 ${urlInfo.trimHash}（从开头打开）`;
+    const hashInfo = ctx.existing ? parseUrl(ctx.existing.url) : urlInfo;
+    if (hashInfo && hashInfo.trimHash) {
+      els.cleanHashLabel.textContent = `去掉锚点 ${hashInfo.trimHash}（从开头打开）`;
       els.cleanHashToggle.checked = true;
       els.cleanHashRow.hidden = false;
     }
