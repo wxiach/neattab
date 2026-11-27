@@ -16,8 +16,8 @@
 
 ```powershell
 # 类型检查与生产构建
-npm run build
+pnpm run build
 
 # 运行分类器与无损导入导出单测
-npm test
+pnpm test
 ```

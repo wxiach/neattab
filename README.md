@@ -11,14 +11,14 @@
    ```bash
    git clone https://github.com/wxiach/neattab.git
    cd neattab
-   npm install
-   npm run build
+   pnpm install
+   pnpm run build
    ```
 
 2. 打开 `edge://extensions`（Chrome 为 `chrome://extensions`），开启 **开发人员模式**。
 3. 点击 **加载解压缩的扩展**，选择构建产物目录 **`dist/`**。
 
-拉取更新后，重新执行 `npm run build`，并在扩展管理页点击 **重新加载** 即可。
+拉取更新后，重新执行 `pnpm run build`，并在扩展管理页点击 **重新加载** 即可。
 
 ## DeepSeek AI 助手（可选）
 
