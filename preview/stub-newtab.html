@@ -88,6 +88,15 @@
         <p class="empty-s" id="empty-s">按 <kbd>/</kbd> 搜索全部收藏</p>
       </div>
     </main>
+
+    <div class="ops-bar" aria-label="快捷操作说明">
+      <span><kbd>/</kbd> 搜索</span>
+      <span><kbd>Tab</kbd> 切结果</span>
+      <span><kbd>Enter</kbd> 打开</span>
+      <span><kbd>右键</kbd> 编辑</span>
+      <span><kbd>拖拽</kbd> 排序 / 左下角删除</span>
+      <span><kbd>★</kbd> 收藏</span>
+    </div>
   </div>
 </div>
 
@@ -109,7 +118,6 @@
       <nav class="sdlg-tabs" id="set-tabs" role="tablist" aria-label="设置分类">
         <button class="stab on" type="button" role="tab" aria-selected="true" data-tab="general">外观与常规</button>
         <button class="stab" type="button" role="tab" aria-selected="false" data-tab="data">数据与备份</button>
-        <button class="stab" type="button" role="tab" aria-selected="false" data-tab="keys">快捷键</button>
         <button class="stab" type="button" role="tab" aria-selected="false" data-tab="about">关于与权限</button>
       </nav>
 
@@ -174,23 +182,6 @@
                 <button class="btn ghost" id="set-import" type="button">导入</button>
               </div>
               <p class="shint">导出精简 JSON 便于备份或交给 AI 整理；导入支持选文件或直接粘贴，严格保持顺序。</p>
-            </div>
-          </section>
-        </div>
-
-        <div class="spanel" data-panel="keys" role="tabpanel" hidden>
-          <section class="sfield">
-            <div class="slabel"><span class="sname">快捷操作</span></div>
-            <div class="scontrol">
-              <dl class="skeys">
-                <div><dt><kbd>/</kbd></dt><dd>聚焦全局搜索</dd></div>
-                <div><dt><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></dt><dd>搜索结果内循环切换选择</dd></div>
-                <div><dt><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></dt><dd>网格内选择</dd></div>
-                <div><dt><kbd>Enter</kbd></dt><dd>打开书签 / 进入分组</dd></div>
-                <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>在新标签打开</dd></div>
-                <div><dt><kbd>右键</kbd> / <kbd>F2</kbd></dt><dd>编辑书签或分组（名称 / 网址 / 分类）</dd></div>
-                <div><dt><kbd>Esc</kbd></dt><dd>清空搜索 / 返回上级</dd></div>
-              </dl>
             </div>
           </section>
         </div>

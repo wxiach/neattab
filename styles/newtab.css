@@ -495,7 +495,10 @@ body.is-dragging .side-foot .footbtn {
 
 .main {
   min-width: 0;
-  padding: var(--main-pt) 0 46px;
+  min-height: calc(100vh - var(--topbar-h));
+  display: flex;
+  flex-direction: column;
+  padding: var(--main-pt) 0 0;
 }
 
 .sheet-head {
@@ -558,6 +561,39 @@ body.is-dragging .side-foot .footbtn {
   border: 1px solid var(--line);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+}
+
+.ops-bar {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 18px;
+  padding: 28px 4px 22px;
+  font-size: var(--fs-meta);
+  color: var(--ink3);
+  opacity: 0.78;
+  transition: opacity 0.14s ease;
+}
+
+.ops-bar:hover {
+  opacity: 1;
+}
+
+.ops-bar > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.ops-bar kbd {
+  padding: 1px 5px;
+  font-size: var(--fs-meta);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink2);
 }
 
 .group-h {
@@ -1141,32 +1177,6 @@ body.is-dragging .trash-zone {
   color: var(--ink2);
 }
 
-.skeys {
-  margin: 0;
-  display: grid;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.skeys > div {
-  display: grid;
-  grid-template-columns: 146px minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-}
-
-.skeys dt {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--ink2);
-}
-
-.skeys dd {
-  margin: 0;
-  color: var(--ink2);
-}
-
 .sdlg-foot {
   flex: none;
   display: flex;
@@ -1539,6 +1549,7 @@ body.is-dragging .trash-zone {
   }
 
   .main {
+    min-height: auto;
     padding-top: 16px;
   }
 }
@@ -1601,7 +1612,8 @@ body.is-dragging .trash-zone {
   }
 
   .topbar,
-  .side {
+  .side,
+  .ops-bar {
     display: none;
   }
 

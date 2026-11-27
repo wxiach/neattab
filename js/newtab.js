@@ -979,18 +979,6 @@
       moveSel(e.shiftKey ? -1 : 1, true);
       return;
     }
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      if (!state.rows.length) return;
-      e.preventDefault();
-      moveSel(e.key === 'ArrowDown' ? 1 : -1);
-      return;
-    }
-    if (!inField && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-      if (!state.rows.length) return;
-      e.preventDefault();
-      moveSel(e.key === 'ArrowRight' ? 1 : -1);
-      return;
-    }
     if (e.key === 'F2' && !inField && editor.canEdit && state.sel >= 0) {
       const it = state.rows[state.sel];
       if (it && it.id) {
