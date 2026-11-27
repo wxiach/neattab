@@ -2,34 +2,46 @@
 
 ## 1. 目录结构
 
-无构建，脚本直接通过 `<script>` 加载并挂载在 `window.NAV` 上，以兼容 `file://` 离线预览。
+采用 **Vite + React 19 + TypeScript + Tailwind CSS v4 + `@base-ui/react`（coss ui 风格）** 多入口打包，产物输出到 `dist/` 供浏览器加载：
 
 ```text
 neattab/
-├── manifest.json
-├── sw.js                  # 后台安装钩子
-├── newtab.html
-├── popup.html
-├── options.html
-├── icons/
-├── styles/
-│   ├── tokens.css         # 颜色、阴影、圆角（0px）与切主题防闪烁
-│   ├── controls.css       # 跨页共用控件与字体选择器
-│   ├── newtab.css
-│   ├── options.css
-│   └── popup.css
-├── js/
-│   ├── shared.js          # 公共工具、图标兜底与外观切换
-│   ├── transfer.js        # 书签 JSON 导入导出与顺序保真写回
-│   ├── newtab.js          # 状态管理、视图计算、渲染与键盘导航
-│   ├── newtab-edit.js     # 编辑对话框、拖拽排序与删除区域
-│   ├── newtab-settings.js
-│   ├── options.js
-│   ├── classifier.js      # 本地分类器（URL 识别与分组打分）
-│   └── popup.js
-├── preview/               # 离线预览页与模拟数据
-└── tools/
-    └── make_preview.py    # 根据 HTML 生成 preview/stub-*.html
+├── package.json
+├── tsconfig.json
+├── vite.config.ts               # 多入口构建：newtab / popup / options -> dist/
+├── newtab.html                  # 新标签页入口（含同步 boot.js 主题/字体防闪烁）
+├── popup.html                   # 工具栏快捷收藏入口
+├── options.html                 # 独立系统设置页入口
+├── public/
+│   ├── manifest.json            # MV3 清单（含可选权限 https://api.deepseek.com/*）
+│   ├── sw.js                    # 后台安装钩子
+│   ├── boot.js                  # 首帧同步恢复主题与系统字体缓存
+│   └── icons/
+├── src/
+│   ├── styles/
+│   │   └── globals.css          # Tailwind v4 + coss ui 浅/深色板 + 2K/4K 响应式变量
+│   ├── lib/
+│   │   ├── cn.ts
+│   │   ├── types.ts             # 共享类型定义
+│   │   ├── storage.ts           # chrome.storage.local 读写与主题/字体应用
+│   │   ├── bookmarks.ts         # 目录树构建、阅读清单分段与拖拽移动
+│   │   ├── classifier.ts        # 本地 TF-IDF 朴素贝叶斯分类器与标题精简
+│   │   ├── transfer.ts          # 无损保序书签 JSON 导入导出
+│   │   ├── pageContext.ts       # 通过 activeTab + scripting 提取当前页摘要（meta/h1/正文片段）
+│   │   └── ai.ts                # DeepSeek 单页推荐（含新建分类）、批量重命名归类与全局目录体检
+│   ├── components/
+│   │   ├── ui/                  # 基于 @base-ui/react 与 CVA 的 coss ui 原语
+│   │   ├── Favicon.tsx
+│   │   ├── FontPicker.tsx       # 32px 固定行高虚拟滚动系统字体选择器
+│   │   ├── ImportDialog.tsx
+│   │   ├── SettingsContent.tsx  # 4 分类系统设置（外观与常规 / AI 助手 / 数据与备份 / 关于与权限）
+│   │   └── BatchRenameDialog.tsx# AI 智能整理弹窗（书签整理 + 全局目录体检，执行前自动备份）
+│   └── pages/
+│       ├── newtab/              # 新标签页应用
+│       ├── popup/               # 快捷收藏弹窗（本地兜底 + DeepSeek 异步优化）
+│       └── options/             # 独立系统设置页
+└── tests/
+    └── run-tests.ts             # 分类器与导入导出单元测试
 ```
 
 ## 2. 本地存储字段
@@ -46,12 +58,14 @@ neattab/
 | `favorites` | 「我的收藏」中的书签 ID（最新在前） |
 | `lastFolderId` | 工具栏弹窗上次保存的目标目录 ID |
 | `mlFeedback` | 分类与纠错样本（最多保留最近 200 条） |
+| `ai` | DeepSeek 配置：`{ enabled, apiKey, model }`（默认关闭） |
 
-另外在 `localStorage` 中缓存 `nav_theme` 和 `nav_font`，用于首帧同步恢复外观。
+另外在 `localStorage` 中缓存 `nav_theme` 和 `nav_font`，供 `public/boot.js` 在首帧同步恢复外观，消除深色模式闪白。
 
 ## 3. 关键实现
 
-- **数据流与多级目录**（`js/newtab.js`）：按 `getTree() → buildRoot() → computeView() → render()` 单向派生视图；`render()` 通过 `replaceChildren()` 整块更新 DOM，外部书签变更经 150ms 防抖后重新拉取，并在 `onRemoved` 时同步清理失效星标。左侧目录树最多展示到二级，三级分类直接在二级视图内按分段平铺展示，支持拖拽排序、跨组移动、右键直出编辑框与左下角浮动删除区。
-- **首帧防闪烁与虚拟滚动字体**（`js/shared.js`）：首帧同步读取 `localStorage` 恢复外观，切主题时通过 `.theme-switching` 禁用过渡并同步重排消除闪烁；本机字体选择器采用固定行高（`32px`）虚拟滚动，仅渲染可视区域节点以避免大量系统字体造成主线程卡顿。
-- **本地分组推荐与标题精简**（`js/classifier.js`）：结合多级目录名、书签标题、域名特征及历史纠错样本（`mlFeedback` 加权），使用 TF-IDF 朴素贝叶斯与余弦相似度混合打分返回前 3 候选分组；收藏时同步执行本地标题清洗（`cleanTitle`），并在弹窗内提供一键还原原标题。
-- **无损保序导入导出**（`js/transfer.js`）：导出精简多级 JSON；替换导入前自动下载备份，采用临时目录三阶段构建并按 URL 复用原书签节点移动以保留 `dateAdded`、顺序与星标，同时保全非 `http/https` 书签节点不被误删。
+- **数据流与多级目录**（`src/pages/newtab/NewtabApp.tsx`、`src/lib/bookmarks.ts`）：按 `getTree() → buildRootTree() → useMemo(view)` 单向派生；外部书签变更经 150ms 防抖重新拉取，并在 `onRemoved` 时递归清理失效星标。左侧目录树最多展示到二级，三级分类在二级视图内按分段平铺展示，支持拖拽排序、跨组移动、右键编辑与左下角浮动玻璃态删除区。
+- **首帧防闪烁与虚拟滚动字体**（`public/boot.js`、`src/components/FontPicker.tsx`）：`boot.js` 在 React 挂载前同步恢复主题与字体；系统字体选择器以 `32px` 行高虚拟滚动渲染可视区域，避免数百款本机字体卡顿主线程。
+- **混合智能收藏**（`src/lib/classifier.ts`、`src/lib/pageContext.ts`、`src/lib/ai.ts`、`src/pages/popup/PopupApp.tsx`）：弹窗 0ms 用本地模型预填分组与精简标题；若启用了 DeepSeek，后台并发提取当前标签页摘要（300ms 超时兜底）并请求官方接口（仅在用户尚未手动修改标题或分组时静默更新），支持一键手动重试以及无合适目录时的保守新建分类建议。
+- **AI 智能整理（重命名 / 归类 / 目录体检）**（`src/components/BatchRenameDialog.tsx`、`src/lib/ai.ts`）：在系统设置「AI 助手」页签打开。**书签整理**支持按当前分组、我的收藏或全部书签分批（15 条/批）请求 DeepSeek 给出标题精简与可选重归类建议，用户显式确认后写回；**目录体检**基于整棵书签目录摘要给出合并、清理空目录、改名与拆分建议，执行前自动下载完整 JSON 备份，合并时先全量迁出书签与子目录并实时复核为空后才删除旧空目录。
+- **无损保序导入导出**（`src/lib/transfer.ts`）：导出精简多级 JSON；替换导入前自动下载备份，采用临时目录三阶段构建并复用已有 URL 节点移动以保留 `dateAdded`、顺序与星标，同时保全非 `http/https` 书签节点不被误删。

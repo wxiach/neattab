@@ -1,0 +1,373 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "SFMono-Regular", var(--font), ui-monospace, monospace;
+
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --subtle: #f4f4f5;
+  --ico-bg: #ffffff;
+  --ink: #18181b;
+  --ink2: #52525b;
+  --ink3: #8a8a93;
+  --line: #e4e4e7;
+  --line2: #d4d4d8;
+  --line3: #b8b8c0;
+  --hover: rgba(24, 24, 27, 0.045);
+
+  --blue: #2563eb;
+  --blue-soft: rgba(37, 99, 235, 0.1);
+  --blue-line: rgba(37, 99, 235, 0.36);
+
+  --amber: #d97706;
+  --amber-soft: rgba(217, 119, 6, 0.1);
+  --amber-line: rgba(217, 119, 6, 0.3);
+
+  --emerald: #059669;
+  --emerald-soft: rgba(5, 150, 105, 0.1);
+  --emerald-line: rgba(5, 150, 105, 0.32);
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-soft: rgba(220, 38, 38, 0.1);
+  --danger-line: rgba(220, 38, 38, 0.34);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --kbd-shadow: 0 1px 0 var(--line2);
+  --badge-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  /* 新标签页响应式比例变量 */
+  --topbar-h: 62px;
+  --page-max: 1220px;
+  --page-gutter: 64px;
+  --side-w: 232px;
+  --shell-gap: 28px;
+  --side-pt: 22px;
+  --main-pt: 20px;
+  --head-mb: 14px;
+
+  --brand-sz: 30px;
+  --brand-fs: 13.5px;
+  --search-w: 360px;
+  --search-h: 36px;
+  --top-btn-sz: 32px;
+
+  --nav-h: 34px;
+  --nav-sub-h: 32px;
+  --nav-indent-base: 32px;
+  --nav-indent-step: 14px;
+
+  --cell-py: 13px;
+  --cell-px: 16px;
+  --cell-gap: 12px;
+  --ico-sz: 32px;
+  --ico-pad: 6px;
+
+  --group-py-t: 14px;
+  --group-py-b: 10px;
+  --group-px: 18px;
+
+  --fs-title: 13px;
+  --fs-sub: 12.5px;
+  --fs-group: 12px;
+  --fs-meta: 11px;
+  --fs-cur: 15px;
+
+  --dlg-settings-w: 680px;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e0e11;
+  --surface: #17171b;
+  --subtle: #202026;
+  --ico-bg: #26262e;
+  --ink: #f4f4f5;
+  --ink2: #a1a1aa;
+  --ink3: #71717a;
+  --line: #27272d;
+  --line2: #36363f;
+  --line3: #4a4a55;
+  --hover: rgba(255, 255, 255, 0.06);
+
+  --blue: #60a5fa;
+  --blue-soft: rgba(96, 165, 250, 0.15);
+  --blue-line: rgba(96, 165, 250, 0.42);
+
+  --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, 0.14);
+  --amber-line: rgba(251, 191, 36, 0.34);
+
+  --emerald: #34d399;
+  --emerald-soft: rgba(52, 211, 153, 0.14);
+  --emerald-line: rgba(52, 211, 153, 0.34);
+
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --danger-line: rgba(248, 113, 113, 0.36);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --kbd-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.45);
+  --badge-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.28);
+
+  color-scheme: dark;
+}
+
+@media (min-width: 2000px) {
+  :root {
+    --topbar-h: 72px;
+    --page-max: 1520px;
+    --page-gutter: 120px;
+    --side-w: 276px;
+    --shell-gap: 36px;
+    --head-mb: 18px;
+
+    --brand-sz: 36px;
+    --brand-fs: 15.5px;
+    --search-w: 440px;
+    --search-h: 42px;
+    --top-btn-sz: 38px;
+
+    --nav-h: 40px;
+    --nav-sub-h: 36px;
+
+    --cell-py: 17px;
+    --cell-px: 20px;
+    --cell-gap: 15px;
+    --ico-sz: 38px;
+    --ico-pad: 7px;
+
+    --group-py-t: 16px;
+    --group-py-b: 12px;
+    --group-px: 22px;
+
+    --fs-title: 15px;
+    --fs-sub: 14px;
+    --fs-group: 13.5px;
+    --fs-meta: 12.5px;
+    --fs-cur: 18px;
+
+    --dlg-settings-w: 780px;
+  }
+}
+
+@media (min-width: 2800px) {
+  :root {
+    --topbar-h: 84px;
+    --page-max: 1840px;
+    --page-gutter: 160px;
+    --side-w: 324px;
+    --shell-gap: 44px;
+    --head-mb: 22px;
+
+    --brand-sz: 42px;
+    --brand-fs: 17.5px;
+    --search-w: 540px;
+    --search-h: 48px;
+    --top-btn-sz: 44px;
+
+    --nav-h: 46px;
+    --nav-sub-h: 42px;
+
+    --cell-py: 21px;
+    --cell-px: 25px;
+    --cell-gap: 17px;
+    --ico-sz: 44px;
+    --ico-pad: 9px;
+
+    --group-py-t: 19px;
+    --group-py-b: 14px;
+    --group-px: 26px;
+
+    --fs-title: 17px;
+    --fs-sub: 15.5px;
+    --fs-group: 15px;
+    --fs-meta: 14px;
+    --fs-cur: 21px;
+
+    --dlg-settings-w: 860px;
+  }
+}
+
+@theme inline {
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-ink3: var(--ink3);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-line3: var(--line3);
+  --color-hover: var(--hover);
+
+  --color-accent: var(--blue);
+  --color-accent-soft: var(--blue-soft);
+  --color-accent-line: var(--blue-line);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-amber-line: var(--amber-line);
+  --color-emerald: var(--emerald);
+  --color-emerald-soft: var(--emerald-soft);
+  --color-emerald-line: var(--emerald-line);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: var(--line);
+  }
+
+  :root.theme-switching,
+  :root.theme-switching *,
+  :root.theme-switching *::before,
+  :root.theme-switching *::after {
+    transition: none !important;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scrollbar-color: var(--line3) transparent;
+  }
+
+  mark {
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-weight: 600;
+    padding: 0 3px;
+  }
+
+  input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+/* 拖拽删除区玻璃拟态 */
+.trash-zone {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface) 78%);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px dashed color-mix(in srgb, var(--danger) 55%, transparent);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.trash-zone.over {
+  background: color-mix(in srgb, var(--danger) 88%, transparent);
+  border-style: solid;
+  border-color: var(--danger);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 30%, transparent);
+  color: #ffffff;
+}
+
+.topbar-glass {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* 书签细线网格：4 列零空隙，负右/下边距由外层 overflow-hidden 裁切 */
+.bm-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-right: -1px;
+  margin-bottom: -1px;
+}
+
+.bm-grid + .bm-grid {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--line);
+}
+
+.bm-grid > .bm-cell {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 1120px) {
+  .bm-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .bm-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .bm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 新标签页主栅格 */
+.nav-container {
+  width: min(var(--page-max), calc(100% - var(--page-gutter)));
+  margin: 0 auto;
+}
+
+.nav-shell {
+  display: grid;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+  gap: var(--shell-gap);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .nav-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .nav-container {
+    width: calc(100% - 32px);
+  }
+}
+
+/* 打印 */
+@media print {
+  body {
+    background: #ffffff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .nav-shell {
+    display: block;
+    width: 100%;
+  }
+}

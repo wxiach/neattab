@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "NeatTab — 书签导航",
+  "short_name": "NeatTab",
+  "version": "0.2.0",
+  "description": "把收藏夹栏变成一张高效书签索引页，支持本地模型与可选 DeepSeek 智能分类命名、AI 批量重命名与本机系统字体。",
+  "minimum_chrome_version": "110",
+  "permissions": ["bookmarks", "storage", "favicon", "activeTab", "fontSettings", "scripting"],
+  "optional_host_permissions": ["https://api.deepseek.com/*"],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "sw.js"
+  },
+  "action": {
+    "default_title": "NeatTab — 收藏当前页",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}
