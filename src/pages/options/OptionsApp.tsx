@@ -132,6 +132,9 @@ export function OptionsApp() {
           prefs={prefs}
           onPatch={handlePatch}
           onImportDone={(res) => {
+            if (res.mode === 'replace') {
+              setPrefs((prev) => ({ ...prev, favorites: res.favorites }));
+            }
             loadTree(prefs.rootId);
             flash(res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
           }}

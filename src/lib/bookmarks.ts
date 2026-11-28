@@ -39,8 +39,8 @@ export function findNode(
 export function countLinks(node: chrome.bookmarks.BookmarkTreeNode): number {
   let n = 0;
   for (const c of node.children || []) {
-    if (c.url) n += 1;
-    else n += countLinks(c);
+    if (isLink(c)) n += 1;
+    else if (!c.url) n += countLinks(c);
   }
   return n;
 }

@@ -83,7 +83,7 @@ function collectScopeItems(
   loose: BookmarkItem[],
   rootId: string,
   currentFolderId: string,
-  favorites: string[],
+  _favorites: string[],
 ): ScopeOption[] {
   const options: ScopeOption[] = [];
 
@@ -101,8 +101,13 @@ function collectScopeItems(
   }
   for (const t of tops) walk(t, '', allItems);
 
-  const favSet = new Set(favorites);
-  const favItems = allItems.filter((it) => favSet.has(it.id) || loose.some((l) => l.id === it.id));
+  const favItems: BatchRenameInput[] = loose.map((it) => ({
+    id: it.id,
+    title: it.title,
+    url: it.url,
+    folderId: rootId,
+    folderPath: '我的收藏',
+  }));
   if (favItems.length) {
     options.push({ id: '__favorites__', label: `我的收藏（${favItems.length} 条）`, items: favItems });
   }

@@ -24,29 +24,37 @@ function exportFolder(node: chrome.bookmarks.BookmarkTreeNode, depth: number): E
 
 export function buildExportData(
   rootNode: chrome.bookmarks.BookmarkTreeNode,
-  favoriteIds: string[],
+  favoriteIds: string[] = [],
 ): ExportData {
   const favIdSet = new Set(Array.isArray(favoriteIds) ? favoriteIds : []);
   const favorites: string[] = [];
   const seenFav = new Set<string>();
-  const record = (node: chrome.bookmarks.BookmarkTreeNode) => {
-    if (isLink(node) && favIdSet.has(node.id) && !seenFav.has(node.url)) {
-      seenFav.add(node.url);
-      favorites.push(node.url);
-    }
-    for (const c of node.children || []) record(c);
-  };
-  record(rootNode);
 
   const loose: ExportBookmark[] = [];
   const folders: ExportFolder[] = [];
   for (const child of rootNode.children || []) {
     if (isLink(child)) {
       loose.push({ title: (child.title || '').trim() || hostOf(child.url), url: child.url });
+      if (isHttpUrl(child.url) && !seenFav.has(child.url)) {
+        seenFav.add(child.url);
+        favorites.push(child.url);
+      }
       continue;
     }
     if (child.url) continue;
     folders.push(exportFolder(child, 1));
+  }
+
+  // 兼容旧版：若调用方仍传入额外 favoriteIds，补充记录其 URL
+  if (favIdSet.size > 0) {
+    const record = (node: chrome.bookmarks.BookmarkTreeNode) => {
+      if (isLink(node) && favIdSet.has(node.id) && !seenFav.has(node.url)) {
+        seenFav.add(node.url);
+        favorites.push(node.url);
+      }
+      for (const c of node.children || []) record(c);
+    };
+    record(rootNode);
   }
 
   return {
@@ -284,7 +292,27 @@ export async function applyImport(
   };
 
   const tmp = await chrome.bookmarks.create({ parentId: rootNode.id, title: '_neattab_import_tmp_' });
+  const looseUrlSet = new Set(parsedData.loose.map((it) => it.url));
+  const titleByUrl = new Map<string, string>();
+  const collectTitles = (list: ParsedImportFolder[]) => {
+    for (const f of list) {
+      for (const it of f.items) if (!titleByUrl.has(it.url)) titleByUrl.set(it.url, it.title);
+      collectTitles(f.children);
+    }
+  };
+  collectTitles(parsedData.folders);
+
   for (const it of parsedData.loose) await placeItem(tmp.id, it);
+  // 兼容旧版 JSON 备份：若 favorites 中有未出现在 loose 里的 URL，自动补建一份根目录收藏副本
+  if (parsedData.hasFavorites) {
+    for (const favUrl of parsedData.favorites) {
+      if (looseUrlSet.has(favUrl)) continue;
+      const title = titleByUrl.get(favUrl);
+      if (!title) continue;
+      looseUrlSet.add(favUrl);
+      await chrome.bookmarks.create({ parentId: tmp.id, title, url: favUrl });
+    }
+  }
   await createTree(tmp.id, parsedData.folders, placeItem);
   for (const special of preservedNonHttp) {
     await chrome.bookmarks.move(special.id, { parentId: tmp.id });
@@ -300,19 +328,15 @@ export async function applyImport(
 
   const [treeBeforePromote] = await chrome.bookmarks.getTree();
   const freshTmp = findNode(treeBeforePromote, tmp.id);
+  const restoredFavs: string[] = [];
   for (const c of freshTmp?.children || []) {
     await chrome.bookmarks.move(c.id, { parentId: rootNode.id });
+    if (isLink(c) && !restoredFavs.includes(c.id)) restoredFavs.push(c.id);
   }
   await chrome.bookmarks.remove(tmp.id);
 
-  const favUrls = parsedData.hasFavorites ? parsedData.favorites : backup.favorites;
-  const restoredFavs: string[] = [];
-  for (const url of favUrls) {
-    const id = urlToId.get(url);
-    if (id && !restoredFavs.includes(id)) restoredFavs.push(id);
-  }
   if (chrome.storage?.local) {
-    await chrome.storage.local.set({ favorites: restoredFavs, view: null, expanded: null });
+    await chrome.storage.local.set({ favorites: [], view: null, expanded: null });
   }
   return { mode: 'replace', favorites: restoredFavs };
 }

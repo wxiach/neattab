@@ -11,7 +11,12 @@ import {
   suggestBookmarkWithDeepSeek,
 } from '@/lib/ai';
 import { extractActiveTabContext, type PageContext } from '@/lib/pageContext';
-import { findNode } from '@/lib/bookmarks';
+import { buildRootTree, findNode } from '@/lib/bookmarks';
+import {
+  addFavoriteCopyToRoot,
+  removeFavoriteCopyFromRoot,
+  syncEditedBookmarkCopies,
+} from '@/lib/favSync';
 import {
   buildFolders,
   cleanTitle,
@@ -253,6 +258,9 @@ export function PopupApp() {
         return;
       }
 
+      const built = buildRootTree(root);
+      const looseUrlSet = new Set(built.loose.map((it) => it.url));
+
       const kind = detectPageKind(uInfo);
       const folderList = buildFolders(root);
       const folderMap = new Map(folderList.map((f) => [f.id, f]));
@@ -264,7 +272,12 @@ export function PopupApp() {
           queries.push(chrome.bookmarks.search({ url: uInfo.cleanUrl }));
         }
         const hits = (await Promise.all(queries)).flat();
-        hitExisting = hits.find((h) => h.parentId && folderMap.has(h.parentId)) || hits[0] || null;
+        // 优先匹配子分组中的原件，再退回到根目录副本
+        hitExisting =
+          hits.find((h) => h.parentId && h.parentId !== root.id && folderMap.has(h.parentId)) ||
+          hits.find((h) => h.parentId && folderMap.has(h.parentId)) ||
+          hits[0] ||
+          null;
       } catch {
         hitExisting = null;
       }
@@ -296,7 +309,7 @@ export function PopupApp() {
         const curF = hitExisting.parentId ? folderMap.get(hitExisting.parentId) : undefined;
         setReasonLine(curF ? `当前位于「${curF.pathLabel}」` : '当前已保存在其它目录');
         setSelectedFolder(curF ? curF.id : root.id);
-        setFavChecked(loadedPrefs.favorites.includes(hitExisting.id));
+        setFavChecked(looseUrlSet.has(hitExisting.url || uInfo.cleanUrl));
       } else {
         const rec = trainLocalModel(folderList, loadedPrefs.mlFeedback).predict(
           uInfo.cleanUrl,
@@ -436,25 +449,33 @@ export function PopupApp() {
         const patch: { title?: string; url?: string } = {};
         if (finalTitle !== existing.title) patch.title = finalTitle;
         if (finalUrl !== existing.url) patch.url = finalUrl;
-        if (Object.keys(patch).length) await chrome.bookmarks.update(id, patch);
+        if (Object.keys(patch).length) {
+          await chrome.bookmarks.update(id, patch);
+          if (existing.url) {
+            await syncEditedBookmarkCopies(rootNode.id, id, existing.url, patch);
+          }
+        }
         if (parentId !== existing.parentId) await chrome.bookmarks.move(id, { parentId });
       } else {
         const created = await chrome.bookmarks.create({ parentId, title: finalTitle, url: finalUrl });
         id = created.id;
       }
 
-      const corrected = Boolean(predictedId) && selectedFolder !== predictedId;
-      const favs = [...prefs.favorites];
-      const idx = favs.indexOf(id);
-      if (favChecked && idx < 0) favs.unshift(id);
-      else if (!favChecked && idx >= 0) favs.splice(idx, 1);
+      if (parentId !== rootNode.id) {
+        if (favChecked) {
+          await addFavoriteCopyToRoot(rootNode.id, { title: finalTitle, url: finalUrl });
+        } else {
+          await removeFavoriteCopyFromRoot(rootNode.id, finalUrl);
+        }
+      }
 
+      const corrected = Boolean(predictedId) && selectedFolder !== predictedId;
       const nextFeedback = [
         { url: finalUrl, title: finalTitle, folderId: parentId, corrected },
         ...prefs.mlFeedback.filter((i) => i && i.url !== finalUrl),
       ].slice(0, MAX_FEEDBACK);
 
-      await savePrefs({ favorites: favs, mlFeedback: nextFeedback, lastFolderId: parentId });
+      await savePrefs({ mlFeedback: nextFeedback, lastFolderId: parentId });
 
       setNotice({
         title: existing ? '已更新收藏' : '已加入收藏',
@@ -472,8 +493,6 @@ export function PopupApp() {
     setSaving(true);
     try {
       await chrome.bookmarks.remove(existing.id);
-      const favs = prefs.favorites.filter((id) => id !== existing.id);
-      await savePrefs({ favorites: favs });
       setNotice({ title: '已移除书签', subtitle: existing.title || '' });
       setTimeout(() => window.close(), 480);
     } catch {

@@ -3,12 +3,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import {
+  buildRootTree,
+} from '../src/lib/bookmarks.ts';
+import {
   buildFolders,
   cleanTitle,
   detectPageKind,
   parseUrl,
   trainLocalModel,
 } from '../src/lib/classifier.ts';
+import {
+  addFavoriteCopyToRoot,
+  collectGroupedUrls,
+  migrateLegacyLocalFavorites,
+  removeFavoriteCopyFromRoot,
+  syncEditedBookmarkCopies,
+} from '../src/lib/favSync.ts';
 import {
   applyImport,
   buildExportData,
@@ -174,7 +184,7 @@ const seedRoot: Node = {
 };
 
 const exported = buildExportData(seedRoot, ['30']);
-assert.deepEqual(exported.favorites, ['https://coss.com/ui']);
+assert.deepEqual(exported.favorites, ['https://loose.example/', 'https://coss.com/ui']);
 assert.equal(exported.folders[0].children![0].children![0].items[0].title, 'coss ui');
 
 const parsed = parseImportText('```json\n' + JSON.stringify(exported) + '\n```');
@@ -187,9 +197,6 @@ assert.equal(parsed.ok, true);
 if (parsed.ok) {
   const rep = await applyImport('1', parsed.data, 'replace', ['30'], true);
   assert.equal(rep.mode, 'replace');
-  if (rep.mode === 'replace') {
-    assert.deepEqual(rep.favorites, ['30']);
-  }
   const [afterTree] = await mock.api.bookmarks.getTree();
   const rootAfter = afterTree.children![0];
   // Non-http bookmark (edge://extensions/) must be preserved!
@@ -199,6 +206,10 @@ if (parsed.ok) {
   const cossNode = rootAfter.children!.find((c) => c.title === '开发')!.children![0].children![0].children![0];
   assert.equal(cossNode?.id, '30');
   assert.equal(cossNode?.dateAdded, 333);
+  // Legacy favorite URL ('https://coss.com/ui') auto-copied to root bookmarks bar!
+  const rootUrls = (rootAfter.children || []).filter((c) => c.url).map((c) => c.url);
+  assert.equal(rootUrls.includes('https://loose.example/'), true);
+  assert.equal(rootUrls.includes('https://coss.com/ui'), true);
 
   const app = await applyImport('1', parsed.data, 'append', ['30'], true);
   assert.equal(app.mode, 'append');
@@ -207,4 +218,91 @@ if (parsed.ok) {
 assert.equal(parseImportText('not json').ok, false);
 assert.equal(parseImportText('{}').ok, false);
 console.log('PASS transfer replace (order, dateAdded, favorites, non-http) & append');
+
+// 3. Root-copy favorites tests (add/remove copy, dedup, edit sync, legacy migration)
+function createRootCopyMock(initialRoot: Node) {
+  let seq = 3000;
+  const tree: Node = { id: '0', title: '', children: [structuredClone(initialRoot)] };
+  const findById = (cur: Node, id: string): Node | null => {
+    if (cur.id === id) return cur;
+    for (const c of cur.children || []) {
+      const hit = findById(c, id);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const findParentAndIdx = (cur: Node, id: string): { parent: Node; idx: number; node: Node } | null => {
+    const kids = cur.children || [];
+    for (let i = 0; i < kids.length; i += 1) {
+      if (kids[i].id === id) return { parent: cur, idx: i, node: kids[i] };
+      const hit = findParentAndIdx(kids[i], id);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return {
+    getRoot: () => tree.children![0],
+    api: {
+      bookmarks: {
+        getTree: async () => [structuredClone(tree)],
+        create: async (details: chrome.bookmarks.BookmarkCreateArg) => {
+          const parent = findById(tree, details.parentId || '1');
+          if (!parent) throw new Error('parent not found');
+          const node: Node = {
+            id: String(++seq),
+            parentId: parent.id,
+            title: details.title || '',
+            dateAdded: Date.now(),
+            ...(details.url ? { url: details.url } : { children: [] }),
+          };
+          parent.children = parent.children || [];
+          const idx = typeof details.index === 'number' ? Math.min(details.index, parent.children.length) : parent.children.length;
+          parent.children.splice(idx, 0, node);
+          return structuredClone(node);
+        },
+        update: async (id: string, changes: { title?: string; url?: string }) => {
+          const node = findById(tree, id);
+          if (!node) throw new Error('not found');
+          if (changes.title !== undefined) node.title = changes.title;
+          if (changes.url !== undefined) node.url = changes.url;
+          return structuredClone(node);
+        },
+        remove: async (id: string) => {
+          const hit = findParentAndIdx(tree, id);
+          if (hit) hit.parent.children!.splice(hit.idx, 1);
+        },
+      },
+    },
+  };
+}
+
+const favMock = createRootCopyMock(seedRoot);
+(globalThis as unknown as { chrome: unknown }).chrome = favMock.api;
+
+// Add favorite copy to root (inserted before folders) & prevent duplicate copies
+assert.equal(await addFavoriteCopyToRoot('1', { title: 'coss ui', url: 'https://coss.com/ui' }), true);
+assert.equal(await addFavoriteCopyToRoot('1', { title: 'coss ui', url: 'https://coss.com/ui' }), false);
+const rootChildren1 = favMock.getRoot().children!;
+const copyIdx = rootChildren1.findIndex((c) => c.url === 'https://coss.com/ui');
+const folderIdx = rootChildren1.findIndex((c) => !c.url);
+assert.equal(copyIdx >= 0 && copyIdx < folderIdx, true);
+
+// Edit original bookmark syncs title & url to root copy
+await favMock.api.bookmarks.update('30', { title: 'coss ui v2', url: 'https://coss.com/ui/v2' });
+await syncEditedBookmarkCopies('1', '30', 'https://coss.com/ui', { title: 'coss ui v2', url: 'https://coss.com/ui/v2' });
+const updatedCopy = favMock.getRoot().children!.find((c) => c.url === 'https://coss.com/ui/v2');
+assert.equal(updatedCopy?.title, 'coss ui v2');
+
+// Remove copy from root keeps original in folder untouched
+assert.equal(await removeFavoriteCopyFromRoot('1', 'https://coss.com/ui/v2'), true);
+assert.equal(favMock.getRoot().children!.some((c) => c.url === 'https://coss.com/ui/v2'), false);
+const builtAfterRemove = buildRootTree(favMock.getRoot());
+assert.equal(collectGroupedUrls(builtAfterRemove.tops).has('https://coss.com/ui/v2'), true);
+
+// Legacy local favorites auto-migration copies missing items into root
+const migrated = await migrateLegacyLocalFavorites('1', ['30'], builtAfterRemove.loose, builtAfterRemove.itemIndex);
+assert.equal(migrated, true);
+assert.equal(favMock.getRoot().children!.some((c) => c.url === 'https://coss.com/ui/v2'), true);
+
+console.log('PASS favSync root-copy add/remove, dedup, edit sync & legacy migration');
 console.log('ALL TESTS PASSED');

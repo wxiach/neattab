@@ -36,6 +36,13 @@ import {
   type FolderSelectOption,
 } from '@/lib/bookmarks';
 import {
+  addFavoriteCopyToRoot,
+  collectGroupedUrls,
+  migrateLegacyLocalFavorites,
+  removeFavoriteCopyFromRoot,
+  syncEditedBookmarkCopies,
+} from '@/lib/favSync';
+import {
   applyFont,
   applyTheme,
   DEFAULT_AI,
@@ -250,11 +257,28 @@ export function NewtabApp() {
       const built = buildRootTree(rootNode);
       setTree(built);
 
-      // 仅在内存中过滤失效星标；持久化的失效星标由 onRemoved 同步清理
-      setPrefs((prev) => {
-        const filtered = prev.favorites.filter((id) => built.itemIndex.has(id));
-        return filtered.length === prev.favorites.length ? prev : { ...prev, favorites: filtered };
-      });
+      // 一次性迁移老版本存在本地 storage 的星标到收藏夹栏根目录
+      if (prefsRef.current.favorites.length > 0) {
+        const legacy = prefsRef.current.favorites;
+        prefsRef.current = { ...prefsRef.current, favorites: [] };
+        setPrefs((prev) => ({ ...prev, favorites: [] }));
+        savePrefs({ favorites: [] });
+        const migrated = await migrateLegacyLocalFavorites(
+          built.resolvedRootId,
+          legacy,
+          built.loose,
+          built.itemIndex,
+        );
+        if (migrated) {
+          try {
+            const [freshTree] = await chrome.bookmarks.getTree();
+            const freshRoot = findNode(freshTree, built.resolvedRootId) || freshTree?.children?.[0];
+            if (freshRoot) setTree(buildRootTree(freshRoot));
+          } catch {
+            /* 忽略 */
+          }
+        }
+      }
 
       const curFid = folderIdRef.current;
       const nextFid = computeDefaultFolderId(built, curFid);
@@ -333,25 +357,8 @@ export function NewtabApp() {
       reloadTimer = window.setTimeout(() => loadBookmarks(), 150);
     };
 
-    const collectRemovedIds = (node: chrome.bookmarks.BookmarkTreeNode | undefined, out: Set<string>) => {
-      if (!node) return;
-      if (node.id) out.add(node.id);
-      for (const c of node.children || []) collectRemovedIds(c, out);
-    };
-
-    const onRemoved = (id: string, info?: { node?: chrome.bookmarks.BookmarkTreeNode }) => {
-      const gone = new Set<string>([id]);
-      collectRemovedIds(info?.node, gone);
-      const nextFavs = prefsRef.current.favorites.filter((fid) => !gone.has(fid));
-      if (nextFavs.length !== prefsRef.current.favorites.length) {
-        setPrefs((prev) => ({ ...prev, favorites: nextFavs }));
-        savePrefs({ favorites: nextFavs });
-      }
-      scheduleReload();
-    };
-
     chrome.storage?.onChanged?.addListener(onStorageChange);
-    chrome.bookmarks.onRemoved?.addListener(onRemoved);
+    chrome.bookmarks.onRemoved?.addListener(scheduleReload);
     chrome.bookmarks.onCreated?.addListener(scheduleReload);
     chrome.bookmarks.onChanged?.addListener(scheduleReload);
     chrome.bookmarks.onMoved?.addListener(scheduleReload);
@@ -361,7 +368,7 @@ export function NewtabApp() {
       window.clearTimeout(reloadTimer);
       systemDarkMq?.removeEventListener('change', onMq);
       chrome.storage?.onChanged?.removeListener(onStorageChange);
-      chrome.bookmarks.onRemoved?.removeListener(onRemoved);
+      chrome.bookmarks.onRemoved?.removeListener(scheduleReload);
       chrome.bookmarks.onCreated?.removeListener(scheduleReload);
       chrome.bookmarks.onChanged?.removeListener(scheduleReload);
       chrome.bookmarks.onMoved?.removeListener(scheduleReload);
@@ -413,15 +420,37 @@ export function NewtabApp() {
     [ancestorChain, normalizeFolderId, tree.folderMap],
   );
 
-  const toggleFavorite = useCallback((id: string) => {
-    setPrefs((prev) => {
-      const next = prev.favorites.includes(id)
-        ? prev.favorites.filter((x) => x !== id)
-        : [id, ...prev.favorites];
-      savePrefs({ favorites: next });
-      return { ...prev, favorites: next };
-    });
-  }, []);
+  const looseUrlSet = useMemo(() => new Set(tree.loose.map((it) => it.url)), [tree.loose]);
+  const groupedUrlSet = useMemo(() => collectGroupedUrls(tree.tops), [tree.tops]);
+
+  const toggleFavorite = useCallback(
+    async (id: string) => {
+      const entry = tree.itemIndex.get(id);
+      if (!entry) return;
+      const { item } = entry;
+      const rootId = tree.resolvedRootId || prefsRef.current.rootId;
+
+      if (looseUrlSet.has(item.url)) {
+        if (!groupedUrlSet.has(item.url)) {
+          // 仅存于根目录且无子分组原件：走二次确认防误删
+          setDeleteTarget({ id: item.id, title: item.title, isFolder: false, descendantCount: 0 });
+          return;
+        }
+        const removed = await removeFavoriteCopyFromRoot(rootId, item.url);
+        if (removed) {
+          await loadBookmarks();
+          flash('已移出「我的收藏」');
+        }
+      } else {
+        const added = await addFavoriteCopyToRoot(rootId, { title: item.title, url: item.url });
+        if (added) {
+          await loadBookmarks();
+          flash('已加入「我的收藏」');
+        }
+      }
+    },
+    [flash, groupedUrlSet, loadBookmarks, looseUrlSet, tree.itemIndex, tree.resolvedRootId],
+  );
 
   const openUrl = useCallback((url: string, forceNew: boolean) => {
     if (forceNew || prefsRef.current.openMode === 'tab') {
@@ -439,24 +468,35 @@ export function NewtabApp() {
 
     if (q) {
       const rows: ViewRow[] = [];
-      for (const it of tree.loose) {
-        if (matchRow(it)) rows.push({ ...it, kind: 'link', group: '未分组' });
-      }
+      const seenUrls = new Set<string>();
       for (const t of tree.tops) {
         const tmp: BookmarkItem[] = [];
         collectFolderItems(t, t.title, matchRow, tmp);
-        for (const it of tmp) rows.push({ ...it, kind: 'link' });
+        for (const it of tmp) {
+          seenUrls.add(it.url);
+          rows.push({ ...it, kind: 'link' });
+        }
       }
-      return { filter: 'search', rows, group: true, crumb: [{ title: '搜索' }], hits: rows.length };
+      const looseHits: ViewRow[] = [];
+      for (const it of tree.loose) {
+        if (matchRow(it) && !seenUrls.has(it.url)) {
+          looseHits.push({ ...it, kind: 'link', group: '未分组' });
+        }
+      }
+      const combined = [...looseHits, ...rows];
+      return { filter: 'search', rows: combined, group: true, crumb: [{ title: '搜索' }], hits: combined.length };
     }
 
     if (folderId === '__favorites__') {
-      const favSet = new Set(prefs.favorites);
       const rows: ViewRow[] = [];
-      for (const it of tree.loose) rows.push({ ...it, kind: 'link', group: '未分组' });
+      for (const it of tree.loose) {
+        if (!groupedUrlSet.has(it.url)) {
+          rows.push({ ...it, kind: 'link', group: '未分组' });
+        }
+      }
       for (const t of tree.tops) {
         const tmp: BookmarkItem[] = [];
-        collectFolderItems(t, t.title, (it) => favSet.has(it.id), tmp);
+        collectFolderItems(t, t.title, (it) => looseUrlSet.has(it.url), tmp);
         for (const it of tmp) rows.push({ ...it, kind: 'link' });
       }
       return { filter: 'folder', rows, group: rows.length > 0, crumb: [{ title: '我的收藏' }] };
@@ -504,7 +544,7 @@ export function NewtabApp() {
       splitSections: folder.items.length > 0 && folder.children.length > 0,
       crumb,
     };
-  }, [ancestorChain, computeDefaultFolderId, folderId, prefs.favorites, query, tree]);
+  }, [ancestorChain, computeDefaultFolderId, folderId, groupedUrlSet, looseUrlSet, query, tree]);
 
   // 搜索时默认选中第一条
   useEffect(() => {
@@ -633,7 +673,17 @@ export function NewtabApp() {
       const patch: { title?: string; url?: string } = {};
       if (nextTitle !== editTarget.title) patch.title = nextTitle;
       if (!editTarget.isFolder && nextUrl !== editTarget.url) patch.url = nextUrl;
-      if (Object.keys(patch).length) await chrome.bookmarks.update(editTarget.id, patch);
+      if (Object.keys(patch).length) {
+        await chrome.bookmarks.update(editTarget.id, patch);
+        if (!editTarget.isFolder && editTarget.url) {
+          await syncEditedBookmarkCopies(
+            tree.resolvedRootId || prefsRef.current.rootId,
+            editTarget.id,
+            editTarget.url,
+            patch,
+          );
+        }
+      }
 
       if (editParentId && editParentId !== editTarget.parentId) {
         const blocked = editTarget.isFolder && (await isInsideFolder(editParentId, editTarget.id));
@@ -755,13 +805,20 @@ export function NewtabApp() {
     return set;
   }, [ancestorChain, folderId]);
 
-  const favCount = useMemo(
-    () => new Set([...prefs.favorites, ...tree.loose.map((it) => it.id)]).size,
-    [prefs.favorites, tree.loose],
-  );
+  const favCount = useMemo(() => {
+    let n = 0;
+    for (const it of tree.loose) {
+      if (!groupedUrlSet.has(it.url)) n += 1;
+    }
+    for (const t of tree.tops) {
+      const tmp: BookmarkItem[] = [];
+      collectFolderItems(t, t.title, (it) => looseUrlSet.has(it.url), tmp);
+      n += tmp.length;
+    }
+    return n;
+  }, [groupedUrlSet, looseUrlSet, tree.loose, tree.tops]);
 
   const looseIdSet = useMemo(() => new Set(tree.loose.map((it) => it.id)), [tree.loose]);
-  const favIdSet = useMemo(() => new Set(prefs.favorites), [prefs.favorites]);
 
   const resolveNavDrop = (e: React.DragEvent, targetEl: HTMLElement, node: FolderNode): '' | 'into' | 'before' | 'after' => {
     if (!drag || drag.id === node.id) return '';
@@ -891,6 +948,7 @@ export function NewtabApp() {
   /* ---------------- 书签网格卡片渲染 ---------------- */
 
   const canReorderCard = view.filter !== 'search' && folderId !== '__favorites__' && !view.reading;
+  const canDragCard = canEdit && folderId !== '__favorites__';
   const searchHighlight = view.filter === 'search' ? query.trim() : '';
 
   const renderCell = (it: ViewRow, idx: number) => {
@@ -953,7 +1011,8 @@ export function NewtabApp() {
     }
 
     const isLoose = looseIdSet.has(it.id);
-    const isFav = favIdSet.has(it.id);
+    const isFav = looseUrlSet.has(it.url);
+    const canToggleStar = !isLoose || groupedUrlSet.has(it.url);
 
     return (
       <a
@@ -961,7 +1020,7 @@ export function NewtabApp() {
         href={it.url}
         title={`${it.title}\n${it.url}`}
         data-row-idx={idx}
-        draggable={canEdit}
+        draggable={canDragCard}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest('[data-fav-btn]')) return;
           if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -969,7 +1028,7 @@ export function NewtabApp() {
           window.clearTimeout(openTimerRef.current);
           openTimerRef.current = window.setTimeout(() => openUrl(it.url, false), 150);
         }}
-        onDragStart={(e) => canEdit && startDrag(it.id, false, it.title, e)}
+        onDragStart={(e) => canDragCard && startDrag(it.id, false, it.title, e)}
         onDragEnd={endDrag}
         onContextMenu={(e) => {
           if (!canEdit) return;
@@ -1018,7 +1077,7 @@ export function NewtabApp() {
           </span>
         </span>
 
-        {!isLoose && (
+        {canToggleStar && (
           <span
             data-fav-btn="true"
             role="button"

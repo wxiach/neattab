@@ -25,6 +25,7 @@ neattab/
 │   │   ├── types.ts             # 共享类型定义
 │   │   ├── storage.ts           # chrome.storage.local 读写与主题/字体应用
 │   │   ├── bookmarks.ts         # 目录树构建、阅读清单分段与拖拽移动
+│   │   ├── favSync.ts           # 基于收藏夹栏根目录书签副本的跨设备「我的收藏」机制
 │   │   ├── classifier.ts        # 本地 TF-IDF 朴素贝叶斯分类器与标题精简
 │   │   ├── transfer.ts          # 无损保序书签 JSON 导入导出
 │   │   ├── pageContext.ts       # 通过 activeTab + scripting 提取当前页摘要（meta/h1/正文片段）
@@ -55,7 +56,7 @@ neattab/
 | `theme` | 外观主题：`'auto'` / `'light'` / `'dark'` |
 | `font` | 字体：`'system'` 或 `'sys:<字体名>'` |
 | `view` / `expanded` | 上次选中的分组与侧栏展开状态 |
-| `favorites` | 「我的收藏」中的书签 ID（最新在前） |
+| `favorites` | 旧版遗留字段（首次加载自动迁移复制到收藏夹栏根目录后清空） |
 | `lastFolderId` | 工具栏弹窗上次保存的目标目录 ID |
 | `mlFeedback` | 分类与纠错样本（最多保留最近 200 条） |
 | `ai` | DeepSeek 配置：`{ enabled, apiKey, model }`（默认关闭） |
@@ -68,4 +69,5 @@ neattab/
 - **首帧防闪烁与虚拟滚动字体**（`public/boot.js`、`src/components/FontPicker.tsx`）：`boot.js` 在 React 挂载前同步恢复主题与字体；系统字体选择器以 `32px` 行高虚拟滚动渲染可视区域，避免数百款本机字体卡顿主线程。
 - **混合智能收藏**（`src/lib/classifier.ts`、`src/lib/pageContext.ts`、`src/lib/ai.ts`、`src/pages/popup/PopupApp.tsx`）：弹窗 0ms 用本地模型预填分组与精简标题；若启用了 DeepSeek，后台并发提取当前标签页摘要（300ms 超时兜底）并请求官方接口（仅在用户尚未手动修改标题或分组时静默更新），支持一键手动重试以及无合适目录时的保守新建分类建议。
 - **AI 智能整理（重命名 / 归类 / 目录体检）**（`src/components/BatchRenameDialog.tsx`、`src/lib/ai.ts`）：在系统设置「AI 助手」页签打开。**书签整理**支持按当前分组、我的收藏或全部书签分批（15 条/批）请求 DeepSeek 给出标题精简与可选重归类建议，用户显式确认后写回；**目录体检**基于整棵书签目录摘要给出合并、清理空目录、改名与拆分建议，执行前自动下载完整 JSON 备份，合并时先全量迁出书签与子目录并实时复核为空后才删除旧空目录。
+- **收藏夹栏副本收藏**（`src/lib/favSync.ts`）：「我的收藏」以数据源根目录（默认「收藏夹栏」）的真实书签为唯一来源。给分组内书签点星标时在根目录复制一份副本（位于现有散装书签末尾、文件夹之前），取消收藏时移除根目录副本；随浏览器书签 / iCloud 书签天然跨设备与跨浏览器（含 Safari）同步。「我的收藏」视图按书签实际所属分组分段展示且禁用卡片拖拽移动；编辑标题/网址时同步更新副本，全局搜索按 URL 自动去重，首次加载自动迁移旧版本地星标。
 - **无损保序导入导出**（`src/lib/transfer.ts`）：导出精简多级 JSON；替换导入前自动下载备份，采用临时目录三阶段构建并复用已有 URL 节点移动以保留 `dateAdded`、顺序与星标，同时保全非 `http/https` 书签节点不被误删。
