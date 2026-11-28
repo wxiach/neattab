@@ -1125,7 +1125,6 @@ export function NewtabApp() {
     return (
       <div
         draggable={Boolean(canEdit && sec?.editable)}
-        title={sec?.editable ? '右键编辑分类，拖拽可排序或拖至左下角删除' : undefined}
         onDragStart={(e) => canEdit && sec?.editable && startDrag(sec.id, true, sec.title, e)}
         onDragEnd={endDrag}
         onContextMenu={(e) => {
@@ -1157,15 +1156,18 @@ export function NewtabApp() {
         }}
         style={{ padding: 'var(--group-py-t) var(--group-px) var(--group-py-b)' }}
         className={cn(
-          'relative z-[1] flex items-baseline gap-2 bg-surface border-b border-line',
+          'group/head relative z-[1] flex items-baseline gap-2 bg-surface border-b border-line',
           !isFirst && 'border-t border-line',
-          sec?.editable && 'cursor-grab hover:bg-background transition-colors',
+          sec?.editable && 'hover:bg-hover active:cursor-grabbing transition-colors',
           dropMode === 'into' && 'bg-accent-soft',
           dropMode === 'before' && 'shadow-[inset_0_2px_0_0_var(--blue)]',
           dropMode === 'after' && 'shadow-[inset_0_-2px_0_0_var(--blue)]',
         )}
       >
-        <span style={{ fontSize: 'var(--fs-group)' }} className="font-semibold text-ink2">
+        <span
+          style={{ fontSize: 'var(--fs-group)' }}
+          className={cn('font-semibold text-ink2 transition-colors', sec?.editable && 'group-hover/head:text-ink')}
+        >
           {title}
         </span>
         <span style={{ fontSize: 'var(--fs-meta)' }} className="text-ink3 tabular-nums">
