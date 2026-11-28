@@ -7,20 +7,16 @@ import { Segmented } from '@/components/ui/segmented';
 import { NativeSelect } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { FontPicker } from '@/components/FontPicker';
-import { ImportDialog } from '@/components/ImportDialog';
-import { DedupDialog } from '@/components/DedupDialog';
 import { DEEPSEEK_MODELS, requestDeepSeekPermission, testDeepSeekConnection } from '@/lib/ai';
 import { getRootOptions, type RootOption } from '@/lib/bookmarks';
 import { getExtensionVersion } from '@/lib/storage';
-import { exportRoot, type ImportResult } from '@/lib/transfer';
 import type { AiConfig, OpenMode, Prefs, ThemeMode } from '@/lib/types';
 import { cn } from '@/lib/cn';
 
-export type SettingsTab = 'general' | 'data' | 'ai' | 'about';
+export type SettingsTab = 'general' | 'ai' | 'about';
 
 const TAB_ITEMS: ReadonlyArray<{ id: SettingsTab; label: string }> = [
   { id: 'general', label: '常规' },
-  { id: 'data', label: '整理与备份' },
   { id: 'ai', label: '模型配置' },
   { id: 'about', label: '关于' },
 ];
@@ -28,26 +24,16 @@ const TAB_ITEMS: ReadonlyArray<{ id: SettingsTab; label: string }> = [
 export function SettingsContent({
   prefs,
   onPatch,
-  onImportDone,
-  onBookmarksChanged,
-  onOpenBatchRename,
-  onFlash,
   layout = 'modal',
   initialTab = 'general',
 }: {
   prefs: Prefs;
   onPatch: (patch: Partial<Prefs>, msg?: string) => void;
-  onImportDone: (res: ImportResult) => void;
-  onBookmarksChanged?: () => void;
-  onOpenBatchRename?: () => void;
-  onFlash: (msg?: string) => void;
   layout?: 'modal' | 'page';
   initialTab?: SettingsTab;
 }) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [roots, setRoots] = useState<RootOption[]>([]);
-  const [importOpen, setImportOpen] = useState(false);
-  const [dedupOpen, setDedupOpen] = useState(false);
 
   // DeepSeek 配置本地编辑态
   const [showKey, setShowKey] = useState(false);
@@ -117,15 +103,6 @@ export function SettingsContent({
     }
   };
 
-  const handleExport = async () => {
-    try {
-      await exportRoot(prefs.rootId, prefs.favorites);
-      onFlash('已导出 JSON');
-    } catch {
-      onFlash('导出失败');
-    }
-  };
-
   const rowCls =
     layout === 'modal'
       ? 'grid grid-cols-[100px_minmax(0,1fr)] max-sm:grid-cols-1 gap-4 px-5 py-4 border-t border-line first:border-t-0'
@@ -190,47 +167,6 @@ export function SettingsContent({
             ))}
           </NativeSelect>
           <p className={hintCls}>仅展示所选目录下的书签。</p>
-        </div>
-      </section>
-    </>
-  );
-
-  const renderData = () => (
-    <>
-      {onOpenBatchRename && (
-        <section className={rowCls}>
-          <div className={labelCls}>AI 整理</div>
-          <div className="min-w-0">
-            <Button variant="outline" onClick={onOpenBatchRename}>
-              AI 智能整理
-            </Button>
-            <p className={hintCls}>批量重命名、归类与目录体检，执行前自动备份。</p>
-          </div>
-        </section>
-      )}
-
-      <section className={rowCls}>
-        <div className={labelCls}>重复书签</div>
-        <div className="min-w-0">
-          <Button variant="outline" onClick={() => setDedupOpen(true)}>
-            扫描重复书签
-          </Button>
-          <p className={hintCls}>自动保留根目录的收藏副本，多余项可删除或移回「我的收藏」。</p>
-        </div>
-      </section>
-
-      <section className={rowCls}>
-        <div className={labelCls}>导入导出</div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExport}>
-              导出 JSON
-            </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              导入 JSON
-            </Button>
-          </div>
-          <p className={hintCls}>替换导入前自动下载备份，保留原顺序与收藏时间。</p>
         </div>
       </section>
     </>
@@ -378,7 +314,6 @@ export function SettingsContent({
 
           <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
             {tab === 'general' && renderGeneral()}
-            {tab === 'data' && renderData()}
             {tab === 'ai' && renderAi()}
             {tab === 'about' && renderAbout()}
           </div>
@@ -390,10 +325,6 @@ export function SettingsContent({
             <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderGeneral()}</div>
           </div>
           <div>
-            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">整理与备份</h2>
-            <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderData()}</div>
-          </div>
-          <div>
             <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">模型配置</h2>
             <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderAi()}</div>
           </div>
@@ -403,28 +334,6 @@ export function SettingsContent({
           </div>
         </div>
       )}
-
-      <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        rootId={prefs.rootId}
-        favorites={prefs.favorites}
-        onDone={onImportDone}
-      />
-
-      <DedupDialog
-        open={dedupOpen}
-        onOpenChange={setDedupOpen}
-        rootId={prefs.rootId}
-        favorites={prefs.favorites}
-        onDone={(res) => {
-          onBookmarksChanged?.();
-          const parts: string[] = [];
-          if (res.movedToFav > 0) parts.push(`已移回 ${res.movedToFav} 条到我的收藏`);
-          if (res.deleted > 0) parts.push(`已删除 ${res.deleted} 条重复书签`);
-          if (parts.length > 0) onFlash(parts.join('，'));
-        }}
-      />
     </>
   );
 }

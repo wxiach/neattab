@@ -2,33 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsContent } from '@/components/SettingsContent';
-import { BatchRenameDialog } from '@/components/BatchRenameDialog';
-import { buildRootTree, findNode, type BuiltRoot } from '@/lib/bookmarks';
 import {
   applyFont,
   applyTheme,
   DEFAULT_AI,
   DEFAULTS,
-  hasExt,
   loadPrefs,
   savePrefs,
   systemDarkMq,
 } from '@/lib/storage';
 import type { Prefs } from '@/lib/types';
 
-const EMPTY_ROOT: BuiltRoot = {
-  resolvedRootId: '1',
-  rootName: '收藏夹',
-  tops: [],
-  loose: [],
-  folderMap: new Map(),
-  itemIndex: new Map(),
-};
-
 export function OptionsApp() {
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
-  const [tree, setTree] = useState<BuiltRoot>(EMPTY_ROOT);
-  const [batchOpen, setBatchOpen] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
   const flashTimerRef = useRef<number>(0);
 
@@ -38,25 +24,13 @@ export function OptionsApp() {
     flashTimerRef.current = window.setTimeout(() => setSavedMsg(''), 1600);
   }, []);
 
-  const loadTree = useCallback(async (rootId: string) => {
-    if (!hasExt) return;
-    try {
-      const [raw] = await chrome.bookmarks.getTree();
-      const rootNode = findNode(raw, rootId) || raw?.children?.[0];
-      if (rootNode) setTree(buildRootTree(rootNode));
-    } catch {
-      /* 忽略 */
-    }
-  }, []);
-
   useEffect(() => {
     loadPrefs().then((loaded) => {
       setPrefs(loaded);
       applyTheme(loaded.theme);
       applyFont(loaded.font);
-      loadTree(loaded.rootId);
     });
-  }, [loadTree]);
+  }, []);
 
   useEffect(() => {
     const onMq = () => applyTheme(prefs.theme);
@@ -127,35 +101,6 @@ export function OptionsApp() {
           layout="page"
           prefs={prefs}
           onPatch={handlePatch}
-          onImportDone={(res) => {
-            if (res.mode === 'replace') {
-              setPrefs((prev) => ({ ...prev, favorites: res.favorites }));
-            }
-            loadTree(prefs.rootId);
-            flash(res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
-          }}
-          onBookmarksChanged={() => loadTree(prefs.rootId)}
-          onOpenBatchRename={() => {
-            loadTree(prefs.rootId);
-            setBatchOpen(true);
-          }}
-          onFlash={flash}
-        />
-
-        <BatchRenameDialog
-          open={batchOpen}
-          onOpenChange={setBatchOpen}
-          ai={prefs.ai}
-          rootId={tree.resolvedRootId || prefs.rootId}
-          tops={tree.tops}
-          loose={tree.loose}
-          favorites={prefs.favorites}
-          currentFolderId="__all__"
-          onOpenAiSettings={() => setBatchOpen(false)}
-          onApplied={(count) => {
-            loadTree(prefs.rootId);
-            flash(`已整理 ${count} 条书签`);
-          }}
         />
 
         <footer className="flex items-center gap-4 pt-5 px-1">

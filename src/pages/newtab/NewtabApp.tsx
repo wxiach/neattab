@@ -1,11 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Loader2, Moon, Search, Sparkles, Sun, X } from 'lucide-react';
+import {
+  Archive,
+  Bookmark,
+  ChevronDown,
+  CopyMinus,
+  Download,
+  Layers,
+  Loader2,
+  Moon,
+  Search,
+  Sparkles,
+  Sun,
+  Upload,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Dialog, DialogHeader, DialogPopup } from '@/components/ui/dialog';
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from '@/components/ui/menu';
 import { SettingsContent, type SettingsTab } from '@/components/SettingsContent';
 import { BatchRenameDialog } from '@/components/BatchRenameDialog';
+import { DedupDialog } from '@/components/DedupDialog';
+import { ImportDialog } from '@/components/ImportDialog';
+import { exportRoot } from '@/lib/transfer';
 import {
   CreateFolderDialog,
   DeleteConfirmDialog,
@@ -88,6 +106,8 @@ export function NewtabApp() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general');
   const [savedToast, setSavedToast] = useState('');
   const [batchOpen, setBatchOpen] = useState(false);
+  const [dedupOpen, setDedupOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -492,7 +512,14 @@ export function NewtabApp() {
 
   // 全局键盘快捷键
   useEffect(() => {
-    const anyModal = settingsOpen || batchOpen || Boolean(editTarget) || Boolean(createTarget) || Boolean(deleteTarget);
+    const anyModal =
+      settingsOpen ||
+      batchOpen ||
+      dedupOpen ||
+      importOpen ||
+      Boolean(editTarget) ||
+      Boolean(createTarget) ||
+      Boolean(deleteTarget);
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (anyModal) return;
@@ -500,6 +527,7 @@ export function NewtabApp() {
       const active = document.activeElement as HTMLElement | null;
       const typing = active === searchInputRef.current;
       const inField = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+      const inMenu = Boolean(active?.closest?.('[role="menu"]'));
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -519,9 +547,10 @@ export function NewtabApp() {
         return;
       }
 
-      // 页面内无弹窗且未聚焦输入框时，直接敲字符自动聚焦搜索框开始检索
+      // 页面内无弹窗且未聚焦输入框或菜单时，直接敲字符自动聚焦搜索框开始检索
       if (
         !inField &&
+        !inMenu &&
         !e.ctrlKey &&
         !e.metaKey &&
         !e.altKey &&
@@ -591,10 +620,12 @@ export function NewtabApp() {
     aiSearchStatus,
     batchOpen,
     createTarget,
+    dedupOpen,
     deleteTarget,
     editTarget,
     findFolder,
     folderId,
+    importOpen,
     openUrl,
     query,
     sel,
@@ -787,9 +818,18 @@ export function NewtabApp() {
     openTimerRef.current = window.setTimeout(() => openUrl(url, false), 150);
   };
 
+  const handleExport = async () => {
+    try {
+      await exportRoot(prefs.rootId, prefs.favorites);
+      flash('已导出 JSON');
+    } catch {
+      flash('导出失败');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-ink">
-      {/* 顶栏：极简左右结构（品牌 + 主题切换） */}
+      {/* 顶栏：左侧品牌 / 右侧整理、备份与主题切换 */}
       <header className="no-print sticky top-0 z-20 h-[var(--topbar-h)] topbar-glass border-b border-line">
         <div className="nav-container h-full flex items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2.5 min-w-0">
@@ -815,19 +855,65 @@ export function NewtabApp() {
             </span>
           </div>
 
-          <button
-            type="button"
-            title="切换浅色 / 深色"
-            aria-label="切换主题"
-            onClick={() => {
-              const next = resolvedTheme === 'dark' ? 'light' : 'dark';
-              handlePatchPrefs({ theme: next }, '');
-            }}
-            style={{ width: 'var(--top-btn-sz)', height: 'var(--top-btn-sz)' }}
-            className="inline-flex items-center justify-center border border-transparent text-ink2 hover:bg-background hover:border-line hover:text-ink cursor-pointer transition-colors"
-          >
-            {resolvedTheme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Menu>
+              <MenuTrigger
+                style={{ height: 'var(--top-btn-sz)', fontSize: 'var(--fs-sub)' }}
+                className="inline-flex items-center gap-1.5 px-2.5 border border-transparent text-ink2 hover:bg-background hover:border-line hover:text-ink data-[popup-open]:bg-background data-[popup-open]:border-line data-[popup-open]:text-ink cursor-pointer transition-colors"
+              >
+                <Layers className="w-3.5 h-3.5 shrink-0" />
+                <span>整理</span>
+                <ChevronDown className="w-3 h-3 text-ink3 shrink-0" />
+              </MenuTrigger>
+              <MenuPopup>
+                <MenuItem onClick={() => setBatchOpen(true)}>
+                  <Sparkles className="w-3.5 h-3.5 text-ink3 shrink-0" />
+                  <span>AI 智能整理</span>
+                </MenuItem>
+                <MenuItem onClick={() => setDedupOpen(true)}>
+                  <CopyMinus className="w-3.5 h-3.5 text-ink3 shrink-0" />
+                  <span>扫描重复书签</span>
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
+
+            <Menu>
+              <MenuTrigger
+                style={{ height: 'var(--top-btn-sz)', fontSize: 'var(--fs-sub)' }}
+                className="inline-flex items-center gap-1.5 px-2.5 border border-transparent text-ink2 hover:bg-background hover:border-line hover:text-ink data-[popup-open]:bg-background data-[popup-open]:border-line data-[popup-open]:text-ink cursor-pointer transition-colors"
+              >
+                <Archive className="w-3.5 h-3.5 shrink-0" />
+                <span>备份</span>
+                <ChevronDown className="w-3 h-3 text-ink3 shrink-0" />
+              </MenuTrigger>
+              <MenuPopup>
+                <MenuItem onClick={handleExport}>
+                  <Download className="w-3.5 h-3.5 text-ink3 shrink-0" />
+                  <span>导出 JSON</span>
+                </MenuItem>
+                <MenuItem onClick={() => setImportOpen(true)}>
+                  <Upload className="w-3.5 h-3.5 text-ink3 shrink-0" />
+                  <span>导入 JSON</span>
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
+
+            <span aria-hidden="true" className="w-px h-4 mx-1 bg-line" />
+
+            <button
+              type="button"
+              title="切换浅色 / 深色"
+              aria-label="切换主题"
+              onClick={() => {
+                const next = resolvedTheme === 'dark' ? 'light' : 'dark';
+                handlePatchPrefs({ theme: next }, '');
+              }}
+              style={{ width: 'var(--top-btn-sz)', height: 'var(--top-btn-sz)' }}
+              className="inline-flex items-center justify-center border border-transparent text-ink2 hover:bg-background hover:border-line hover:text-ink cursor-pointer transition-colors"
+            >
+              {resolvedTheme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1034,20 +1120,6 @@ export function NewtabApp() {
             initialTab={settingsTab}
             prefs={prefs}
             onPatch={handlePatchPrefs}
-            onImportDone={(res) => {
-              if (res.mode === 'replace') {
-                setPrefs((prev) => ({ ...prev, favorites: res.favorites }));
-                setExpanded(new Set());
-              }
-              loadBookmarks();
-              flash(res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
-            }}
-            onBookmarksChanged={() => loadBookmarks()}
-            onOpenBatchRename={() => {
-              setSettingsOpen(false);
-              setBatchOpen(true);
-            }}
-            onFlash={flash}
           />
           <div className="flex-none flex items-center justify-between gap-3 px-5 py-3 border-t border-line bg-background">
             <div className="flex items-center gap-3">
@@ -1088,10 +1160,49 @@ export function NewtabApp() {
           setSettingsTab('ai');
           setSettingsOpen(true);
         }}
-        onApplied={() => {
+        onApplied={(count) => {
           loadBookmarks();
+          if (count > 0) flash(`已整理 ${count} 条书签`);
         }}
       />
+
+      <DedupDialog
+        open={dedupOpen}
+        onOpenChange={setDedupOpen}
+        rootId={prefs.rootId}
+        favorites={prefs.favorites}
+        onDone={(res) => {
+          loadBookmarks();
+          const parts: string[] = [];
+          if (res.movedToFav > 0) parts.push(`已移回 ${res.movedToFav} 条到我的收藏`);
+          if (res.deleted > 0) parts.push(`已删除 ${res.deleted} 条重复书签`);
+          if (parts.length > 0) flash(parts.join('，'));
+        }}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        rootId={prefs.rootId}
+        favorites={prefs.favorites}
+        onDone={(res) => {
+          if (res.mode === 'replace') {
+            setPrefs((prev) => ({ ...prev, favorites: res.favorites }));
+            setExpanded(new Set());
+          }
+          loadBookmarks();
+          flash(res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
+        }}
+      />
+
+      {!settingsOpen && savedToast && (
+        <div
+          role="status"
+          className="no-print fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-3.5 py-2 border border-line2 bg-surface text-[12.5px] text-ink shadow-[var(--shadow-md)]"
+        >
+          {savedToast}
+        </div>
+      )}
 
       <EditItemDialog
         target={editTarget}
