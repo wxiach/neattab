@@ -21,6 +21,7 @@ import {
   applyFolderAudit,
   collectScopeItems,
 } from '../src/lib/batchApply.ts';
+import { classifyIconPixels } from '../src/lib/iconTone.ts';
 import {
   applyImport,
   buildExportData,
@@ -453,4 +454,30 @@ assert.equal(batchRootAfter.children!.some((c) => c.id === 'dirB'), false);
 assert.equal(batchRootAfter.children!.some((c) => c.id === 'dirEmpty'), false);
 
 console.log('PASS batchApply scope isolation (skip root fav copy) & safe folder audit');
+
+// 6. Dark-mode favicon pixel tone classification tests
+const makePixels = (entries: Array<[number, number, number, number]>) =>
+  new Uint8ClampedArray(entries.flat());
+
+// Pure black transparent icon (e.g., GitHub) -> dark-mono (invert in dark mode)
+assert.equal(
+  classifyIconPixels(makePixels([[0, 0, 0, 0], [18, 18, 18, 255], [24, 24, 24, 255]])),
+  'dark-mono',
+);
+// Dark navy transparent icon -> dark-color (soft light tile in dark mode)
+assert.equal(
+  classifyIconPixels(makePixels([[0, 0, 0, 0], [15, 30, 95, 255], [20, 40, 110, 255]])),
+  'dark-color',
+);
+// Dark background with bright white logo inside -> normal (already legible)
+assert.equal(
+  classifyIconPixels(makePixels([[10, 10, 10, 255], [10, 10, 10, 255], [250, 250, 250, 255]])),
+  'normal',
+);
+// Colorful bright icon -> normal
+assert.equal(
+  classifyIconPixels(makePixels([[234, 67, 53, 255], [251, 188, 5, 255], [52, 168, 83, 255]])),
+  'normal',
+);
+console.log('PASS iconTone dark-mode favicon classification');
 console.log('ALL TESTS PASSED');

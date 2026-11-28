@@ -10,6 +10,7 @@
   --surface: #ffffff;
   --subtle: #f4f4f5;
   --ico-bg: #ffffff;
+  --ico-bg-light: #ffffff;
   --ink: #18181b;
   --ink2: #52525b;
   --ink3: #8a8a93;
@@ -88,6 +89,7 @@
   --surface: #17171b;
   --subtle: #202026;
   --ico-bg: #26262e;
+  --ico-bg-light: #d4d4d8;
   --ink: #f4f4f5;
   --ink2: #a1a1aa;
   --ink3: #71717a;
