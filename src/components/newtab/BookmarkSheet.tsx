@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, Folder, Star } from 'lucide-react';
+import { ChevronRight, Folder, Loader2, Star } from 'lucide-react';
 import { Kbd } from '@/components/ui/kbd';
 import { Favicon } from '@/components/Favicon';
 import { cn } from '@/lib/cn';
@@ -12,23 +12,50 @@ import type {
 } from '@/pages/newtab/newtabTypes';
 
 function HighlightText({ text, query }: { text: string; query: string }) {
-  const q = query.trim().toLowerCase();
-  if (!q) return <>{text}</>;
+  const tokens = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return <>{text}</>;
 
   const lower = text.toLowerCase();
-  let at = lower.indexOf(q, 0);
-  if (at < 0) return <>{text}</>;
+  const ranges: Array<[number, number]> = [];
+
+  for (const token of tokens) {
+    let from = 0;
+    let at = lower.indexOf(token, from);
+    while (at >= 0) {
+      ranges.push([at, at + token.length]);
+      from = at + token.length;
+      at = lower.indexOf(token, from);
+    }
+  }
+
+  if (ranges.length === 0) return <>{text}</>;
+
+  // 合并重叠区间，按先后顺序切片渲染高亮
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [ranges[0]];
+  for (let i = 1; i < ranges.length; i += 1) {
+    const prev = merged[merged.length - 1];
+    const cur = ranges[i];
+    if (cur[0] <= prev[1]) {
+      prev[1] = Math.max(prev[1], cur[1]);
+    } else {
+      merged.push(cur);
+    }
+  }
 
   const parts: React.ReactNode[] = [];
-  let from = 0;
+  let cursor = 0;
   let key = 0;
-  while (at >= 0) {
-    if (at > from) parts.push(text.slice(from, at));
-    parts.push(<mark key={key++}>{text.slice(at, at + q.length)}</mark>);
-    from = at + q.length;
-    at = lower.indexOf(q, from);
+  for (const [start, end] of merged) {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(<mark key={key++}>{text.slice(start, end)}</mark>);
+    cursor = end;
   }
-  if (from < text.length) parts.push(text.slice(from));
+  if (cursor < text.length) parts.push(text.slice(cursor));
   return <>{parts}</>;
 }
 
@@ -82,6 +109,8 @@ export function BookmarkSheet({
   onMoveInto,
   onMoveBeforeCard,
   onMoveRel,
+  aiSearchReady = false,
+  aiSearchStatus = 'idle',
 }: {
   view: ComputedView;
   folderId: string;
@@ -105,6 +134,8 @@ export function BookmarkSheet({
   onMoveInto: (id: string, parentId: string) => void;
   onMoveBeforeCard: (id: string, targetId: string) => void;
   onMoveRel: (id: string, targetId: string, pos: 'before' | 'after') => void;
+  aiSearchReady?: boolean;
+  aiSearchStatus?: 'idle' | 'loading' | 'done' | 'error';
 }) {
   const canReorderCard = view.filter !== 'search' && folderId !== '__favorites__' && !view.reading;
   const canDragCard = canEdit && folderId !== '__favorites__';
@@ -112,10 +143,31 @@ export function BookmarkSheet({
 
   const renderEmpty = () => {
     const empty = getEmptyState(view.filter, folderId);
+    const showAiHint = view.filter === 'search' && aiSearchReady;
+
+    if (showAiHint && aiSearchStatus === 'loading') {
+      return (
+        <div className="px-6 py-14 flex items-center justify-center gap-2 text-xs text-ink2">
+          <Loader2 className="w-4 h-4 animate-spin text-accent" />
+          <span>AI 语义搜索中…</span>
+        </div>
+      );
+    }
+
     return (
       <div className="px-6 py-14 text-center">
-        <p className="m-0 mb-2 text-sm font-medium text-ink2">{empty.title}</p>
-        <p className="m-0 text-xs text-ink3">{empty.hint}</p>
+        <p className="m-0 mb-2 text-sm font-medium text-ink2">
+          {showAiHint && aiSearchStatus === 'done' ? '没有匹配的书签（AI 也未找到相关项）' : empty.title}
+        </p>
+        <p className="m-0 text-xs text-ink3">
+          {showAiHint && aiSearchStatus !== 'done' ? (
+            <>
+              按 <Kbd>Enter</Kbd> 用 AI 语义搜索，或按 <Kbd>Esc</Kbd> 清空
+            </>
+          ) : (
+            empty.hint
+          )}
+        </p>
       </div>
     );
   };

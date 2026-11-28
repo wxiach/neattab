@@ -578,3 +578,82 @@ export async function auditFolderStructure(params: {
     suggestions,
   };
 }
+
+export interface SemanticSearchItem {
+  id: string;
+  title: string;
+  host: string;
+  folderPath: string;
+}
+
+export interface SemanticSearchHit {
+  id: string;
+  reason: string;
+}
+
+/**
+ * 按需 AI 语义搜索：仅在用户主动触发时调用，根据用户自然语言描述在书签清单中召回最相关的条目。
+ */
+export async function semanticSearchBookmarks({
+  ai,
+  query,
+  items,
+  limit = 12,
+  signal,
+}: {
+  ai: AiConfig;
+  query: string;
+  items: SemanticSearchItem[];
+  limit?: number;
+  signal?: AbortSignal;
+}): Promise<SemanticSearchHit[]> {
+  const q = query.trim();
+  if (!q || items.length === 0) return [];
+
+  const capped = items.slice(0, 350);
+  const validIds = new Set(capped.map((it) => it.id));
+  const listText = capped
+    .map((it) => `${it.id} | ${it.title} | ${it.host} | ${it.folderPath}`)
+    .join('\n');
+
+  const systemPrompt = [
+    '你是浏览器书签语义搜索助手，需要根据用户真正想办的事，从候选书签中找出**确实能帮上忙**的网站。',
+    '规则：',
+    '1. 先在 intent 字段用一句话还原用户的真实意图与同义概念（例如「税号」= 查询企业纳税人识别号/工商开票信息），再结合各网站和工具的实际用途做匹配（如天眼查可查企业税号、法人与工商信息）。',
+    '2. 只有当该网站本身确实能解决核心需求时才入选；**严禁**仅仅因为标题或目录带有泛词（如「查询」「工具」「系统」「平台」「文档」「管理」）就拉入用途无关的网站（例如搜「查询税号」时，仅用于查银行开户行联行号的「银行联行号查询」不得入选）。',
+    `3. 按相关度从高到低排序，最多返回 ${limit} 条；确实没有能解决该需求的书签时返回空数组。`,
+    '4. 每条 reason 须直白说明该网站如何满足需求（6~14字），不要写「同类工具」「业务查询类」这类空泛理由。',
+    '严格返回 JSON：{"intent":"用户真实意图","matches":[{"id":"书签ID","reason":"具体匹配理由"}]}',
+  ].join('\n');
+
+  const userPrompt = `用户搜索：${q}\n\n候选书签（格式：id | 标题 | 域名 | 所属目录）：\n${listText}`;
+
+  const { data } = await callDeepSeekJson<{
+    intent?: string;
+    matches?: Array<{ id?: string; reason?: string }>;
+  }>(
+    ai,
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { maxTokens: 600, timeoutMs: 15000, signal },
+  );
+
+  const rawList = Array.isArray(data?.matches) ? data.matches : [];
+  const seen = new Set<string>();
+  const hits: SemanticSearchHit[] = [];
+
+  for (const row of rawList) {
+    const id = String(row?.id || '').trim();
+    if (!id || !validIds.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    hits.push({
+      id,
+      reason: String(row?.reason || '').trim().slice(0, 18) || '语义相关',
+    });
+    if (hits.length >= limit) break;
+  }
+
+  return hits;
+}

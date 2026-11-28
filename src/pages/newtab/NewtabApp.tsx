@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Moon, Search, Sun, X } from 'lucide-react';
+import { Bookmark, Loader2, Moon, Search, Sparkles, Sun, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Dialog, DialogHeader, DialogPopup } from '@/components/ui/dialog';
@@ -12,6 +13,12 @@ import {
 } from '@/components/newtab/BookmarkDialogs';
 import { SidebarNav } from '@/components/newtab/SidebarNav';
 import { BookmarkSheet } from '@/components/newtab/BookmarkSheet';
+import {
+  isAiReady,
+  requestDeepSeekPermission,
+  semanticSearchBookmarks,
+  type SemanticSearchHit,
+} from '@/lib/ai';
 import {
   buildRootTree,
   collectFolderItems,
@@ -46,6 +53,7 @@ import {
 import type { BookmarkItem, Prefs } from '@/lib/types';
 import { cn } from '@/lib/cn';
 import {
+  collectSearchableBookmarks,
   computeDefaultFolderId,
   computeNewtabView,
   getAncestorChain,
@@ -96,6 +104,13 @@ export function NewtabApp() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [trashOver, setTrashOver] = useState(false);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
+
+  // 按需 AI 语义搜索状态
+  const [aiSearchStatus, setAiSearchStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [aiSearchErr, setAiSearchErr] = useState('');
+  const [aiSearchHits, setAiSearchHits] = useState<SemanticSearchHit[]>([]);
+  const aiSearchCacheRef = useRef<Map<string, SemanticSearchHit[]>>(new Map());
+  const aiSearchAbortRef = useRef<AbortController | null>(null);
 
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
@@ -359,9 +374,93 @@ export function NewtabApp() {
     }
   }, []);
 
+  const searchableBookmarks = useMemo(() => collectSearchableBookmarks(tree), [tree]);
+  const aiSearchReady = isAiReady(prefs.ai);
+
+  // 书签树变动时清空会话内语义搜索缓存，避免返回失效书签 ID
+  useEffect(() => {
+    aiSearchCacheRef.current.clear();
+  }, [tree]);
+
+  // 搜索词变动时中止旧请求，并按会话缓存恢复或重置语义结果
+  useEffect(() => {
+    aiSearchAbortRef.current?.abort();
+    aiSearchAbortRef.current = null;
+    setAiSearchErr('');
+
+    const key = query.trim().toLowerCase();
+    if (!key) {
+      setAiSearchHits([]);
+      setAiSearchStatus('idle');
+      return;
+    }
+
+    const cached = aiSearchCacheRef.current.get(key);
+    if (cached) {
+      setAiSearchHits(cached);
+      setAiSearchStatus('done');
+    } else {
+      setAiSearchHits([]);
+      setAiSearchStatus('idle');
+    }
+  }, [query]);
+
+  const triggerAiSearch = useCallback(async () => {
+    const q = query.trim();
+    if (!q || !aiSearchReady) return;
+
+    const granted = await requestDeepSeekPermission();
+    if (!granted) {
+      setAiSearchStatus('error');
+      setAiSearchErr('未授予模型接口访问权限');
+      return;
+    }
+
+    aiSearchAbortRef.current?.abort();
+    const ac = new AbortController();
+    aiSearchAbortRef.current = ac;
+
+    setAiSearchStatus('loading');
+    setAiSearchErr('');
+
+    try {
+      const hits = await semanticSearchBookmarks({
+        ai: prefsRef.current.ai,
+        query: q,
+        items: searchableBookmarks.map((e) => ({
+          id: e.item.id,
+          title: e.item.title,
+          host: e.item.host,
+          folderPath: e.folderPath,
+        })),
+        signal: ac.signal,
+      });
+
+      if (ac.signal.aborted) return;
+      aiSearchCacheRef.current.set(q.toLowerCase(), hits);
+      setAiSearchHits(hits);
+      setAiSearchStatus('done');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setAiSearchStatus('error');
+      setAiSearchErr(err instanceof Error ? err.message : 'AI 语义搜索失败');
+    } finally {
+      if (aiSearchAbortRef.current === ac) aiSearchAbortRef.current = null;
+    }
+  }, [aiSearchReady, query, searchableBookmarks]);
+
   const view = useMemo(
-    () => computeNewtabView({ tree, folderId, query, looseUrlSet, groupedUrlSet }),
-    [folderId, groupedUrlSet, looseUrlSet, query, tree],
+    () =>
+      computeNewtabView({
+        tree,
+        searchable: searchableBookmarks,
+        folderId,
+        query,
+        looseUrlSet,
+        groupedUrlSet,
+        aiHits: aiSearchHits,
+      }),
+    [aiSearchHits, folderId, groupedUrlSet, looseUrlSet, query, searchableBookmarks, tree],
   );
 
   const activeAncestors = useMemo(() => {
@@ -443,20 +542,32 @@ export function NewtabApp() {
       if (
         e.key === 'Enter' &&
         view.filter === 'search' &&
-        view.rows.length > 0 &&
         (typing || (!inField && !onInteractive))
       ) {
-        e.preventDefault();
-        const it = view.rows[sel >= 0 ? sel : 0];
-        if (!it) return;
-        if (it.kind === 'folder') selectFolder(it.id);
-        else openUrl(it.url, e.ctrlKey || e.metaKey);
+        // Shift+Enter：随时触发 AI 语义搜索；本地 0 结果时直接按 Enter 也可触发
+        if (aiSearchReady && aiSearchStatus !== 'loading') {
+          if (e.shiftKey || (view.rows.length === 0 && aiSearchStatus !== 'done')) {
+            e.preventDefault();
+            triggerAiSearch();
+            return;
+          }
+        }
+
+        if (view.rows.length > 0) {
+          e.preventDefault();
+          const it = view.rows[sel >= 0 ? sel : 0];
+          if (!it) return;
+          if (it.kind === 'folder') selectFolder(it.id);
+          else openUrl(it.url, e.ctrlKey || e.metaKey);
+        }
       }
     };
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [
+    aiSearchReady,
+    aiSearchStatus,
     batchOpen,
     createTarget,
     deleteTarget,
@@ -468,6 +579,7 @@ export function NewtabApp() {
     sel,
     selectFolder,
     settingsOpen,
+    triggerAiSearch,
     view,
   ]);
 
@@ -701,18 +813,45 @@ export function NewtabApp() {
                 className="flex-1 min-w-0 bg-transparent border-0 text-ink placeholder:text-ink3 outline-none"
               />
               {query ? (
-                <button
-                  type="button"
-                  title="清空搜索（Esc）"
-                  aria-label="清空搜索"
-                  onClick={() => {
-                    setQuery('');
-                    searchInputRef.current?.focus();
-                  }}
-                  className="inline-flex items-center justify-center w-[22px] h-[22px] text-ink3 hover:bg-hover hover:text-ink cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {aiSearchReady && (
+                    <button
+                      type="button"
+                      disabled={aiSearchStatus === 'loading'}
+                      title={
+                        aiSearchStatus === 'loading'
+                          ? 'AI 语义搜索中…'
+                          : 'AI 语义搜索（Shift+Enter）'
+                      }
+                      aria-label="AI 语义搜索"
+                      onClick={triggerAiSearch}
+                      className={cn(
+                        'inline-flex items-center justify-center w-[22px] h-[22px] cursor-pointer transition-colors disabled:opacity-60',
+                        aiSearchStatus === 'done' && aiSearchHits.length > 0
+                          ? 'text-accent hover:bg-hover'
+                          : 'text-ink3 hover:bg-hover hover:text-accent',
+                      )}
+                    >
+                      {aiSearchStatus === 'loading' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    title="清空搜索（Esc）"
+                    aria-label="清空搜索"
+                    onClick={() => {
+                      setQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                    className="inline-flex items-center justify-center w-[22px] h-[22px] text-ink3 hover:bg-hover hover:text-ink cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ) : (
                 <Kbd className="text-ink3">/</Kbd>
               )}
@@ -801,6 +940,10 @@ export function NewtabApp() {
                 })
               )}
             </div>
+
+            {view.filter === 'search' && aiSearchStatus === 'error' && aiSearchErr && (
+              <Badge variant="danger">{aiSearchErr}</Badge>
+            )}
           </div>
 
           <main className="bg-surface border border-line shadow-[var(--shadow-card)] overflow-hidden">
@@ -827,6 +970,8 @@ export function NewtabApp() {
               onMoveInto={doMoveInto}
               onMoveBeforeCard={doMoveBeforeCard}
               onMoveRel={doMoveRel}
+              aiSearchReady={aiSearchReady}
+              aiSearchStatus={aiSearchStatus}
             />
           </main>
 

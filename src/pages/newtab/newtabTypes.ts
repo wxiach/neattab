@@ -1,4 +1,6 @@
+import type { SemanticSearchHit } from '@/lib/ai';
 import { buildReadingRows, collectFolderItems, type BuiltRoot } from '@/lib/bookmarks';
+import { searchBookmarks, type SearchableBookmark } from '@/lib/search';
 import { READING_FOLDER_RE } from '@/lib/storage';
 import type { BookmarkItem, FolderNode } from '@/lib/types';
 
@@ -87,52 +89,110 @@ export function getAncestorChain(id: string, map: Map<string, FolderNode>): Fold
   return chain;
 }
 
+/** 收集当前数据源下全部去重后的可搜索书签（附完整目录路径），自动跳过根目录重复收藏副本。 */
+export function collectSearchableBookmarks(tree: BuiltRoot): SearchableBookmark[] {
+  const entries: SearchableBookmark[] = [];
+  const seenUrls = new Set<string>();
+
+  const walk = (folder: FolderNode, prefix: string) => {
+    const path = prefix ? `${prefix} / ${folder.title}` : folder.title;
+    for (const it of folder.items) {
+      seenUrls.add(it.url);
+      entries.push({ item: it, folderPath: path });
+    }
+    for (const child of folder.children) {
+      walk(child, path);
+    }
+  };
+
+  for (const top of tree.tops) {
+    walk(top, '');
+  }
+
+  for (const it of tree.loose) {
+    if (!seenUrls.has(it.url)) {
+      entries.push({ item: it, folderPath: '未分组' });
+    }
+  }
+
+  return entries;
+}
+
 /** 派生当前主视图数据（搜索态 / 我的收藏 / 阅读清单 / 三级分段 / 普通目录）。 */
 export function computeNewtabView({
   tree,
+  searchable,
   folderId,
   query,
   looseUrlSet,
   groupedUrlSet,
+  aiHits = [],
 }: {
   tree: BuiltRoot;
+  searchable: SearchableBookmark[];
   folderId: string;
   query: string;
   looseUrlSet: Set<string>;
   groupedUrlSet: Set<string>;
+  aiHits?: SemanticSearchHit[];
 }): ComputedView {
-  const q = query.trim().toLowerCase();
-  const matchRow = (it: BookmarkItem) =>
-    it.title.toLowerCase().includes(q) || it.url.toLowerCase().includes(q);
+  const q = query.trim();
 
-  // 1. 全局搜索（按 URL 去重，跳过根目录中已出现在子分组的收藏副本）
+  // 1. 全局搜索（模糊容错 + 拼音 + 目录路径，按相关度排序；有 AI 语义结果时优先置顶分组展示）
   if (q) {
-    const rows: ViewRow[] = [];
-    const seenUrls = new Set<string>();
+    const localMatches = searchBookmarks(searchable, q);
 
-    for (const top of tree.tops) {
-      const hits: BookmarkItem[] = [];
-      collectFolderItems(top, top.title, matchRow, hits);
-      for (const it of hits) {
-        seenUrls.add(it.url);
-        rows.push({ ...it, kind: 'link' });
+    if (aiHits.length > 0) {
+      const entryById = new Map(searchable.map((e) => [e.item.id, e]));
+      const aiRows: ViewRow[] = [];
+      const aiIdSet = new Set<string>();
+
+      for (const hit of aiHits) {
+        const entry = entryById.get(hit.id);
+        if (!entry || aiIdSet.has(hit.id)) continue;
+        aiIdSet.add(hit.id);
+        aiRows.push({
+          ...entry.item,
+          kind: 'link',
+          group: 'AI 语义匹配',
+          subText: `${hit.reason} · ${entry.folderPath}`,
+        });
       }
+
+      const localRows: ViewRow[] = [];
+      for (const m of localMatches) {
+        if (aiIdSet.has(m.item.id)) continue;
+        localRows.push({
+          ...m.item,
+          kind: 'link',
+          group: '本地匹配',
+          subText: m.item.host ? `${m.folderPath} · ${m.item.host}` : m.folderPath,
+        });
+      }
+
+      const combined = [...aiRows, ...localRows];
+      return {
+        filter: 'search',
+        rows: combined,
+        group: true,
+        crumb: [{ title: '搜索' }],
+        hits: combined.length,
+      };
     }
 
-    const looseHits: ViewRow[] = [];
-    for (const it of tree.loose) {
-      if (matchRow(it) && !seenUrls.has(it.url)) {
-        looseHits.push({ ...it, kind: 'link', group: '未分组' });
-      }
-    }
+    const rows: ViewRow[] = localMatches.map((m) => ({
+      ...m.item,
+      kind: 'link',
+      group: m.folderPath,
+      subText: m.item.host ? `${m.folderPath} · ${m.item.host}` : m.folderPath,
+    }));
 
-    const combined = [...looseHits, ...rows];
     return {
       filter: 'search',
-      rows: combined,
-      group: true,
+      rows,
+      group: false,
       crumb: [{ title: '搜索' }],
-      hits: combined.length,
+      hits: rows.length,
     };
   }
 

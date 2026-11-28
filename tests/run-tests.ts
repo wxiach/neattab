@@ -22,6 +22,7 @@ import {
   collectScopeItems,
 } from '../src/lib/batchApply.ts';
 import { classifyIconPixels } from '../src/lib/iconTone.ts';
+import { damerauDistance, searchBookmarks, type SearchableBookmark } from '../src/lib/search.ts';
 import {
   applyImport,
   buildExportData,
@@ -480,4 +481,65 @@ assert.equal(
   'normal',
 );
 console.log('PASS iconTone dark-mode favicon classification');
+
+// 7. Local fuzzy, typo/transposition, pinyin & folder-path search tests
+assert.equal(damerauDistance('githbu', 'github', 2), 1);
+assert.equal(damerauDistance('yuotube', 'youtube', 2), 1);
+assert.equal(damerauDistance('docer', 'docker', 2), 1);
+
+const searchFixtures: SearchableBookmark[] = [
+  {
+    item: { id: 's1', title: 'GitHub', url: 'https://github.com/', host: 'github.com', group: '开发', dateAdded: 1 },
+    folderPath: '开发 / 代码托管',
+  },
+  {
+    item: { id: 's2', title: '天眼查', url: 'https://www.tianyancha.com/', host: 'tianyancha.com', group: '办公', dateAdded: 2 },
+    folderPath: '办公 / 业务查询',
+  },
+  {
+    item: { id: 's3', title: '金山文档', url: 'https://www.kdocs.cn/', host: 'kdocs.cn', group: '办公', dateAdded: 3 },
+    folderPath: '办公 / 云文档',
+  },
+  {
+    item: { id: 's4', title: 'coss ui 组件库', url: 'https://coss.com/ui', host: 'coss.com', group: '开发', dateAdded: 4 },
+    folderPath: '开发 / 前端 / 组件',
+  },
+  {
+    item: { id: 's5', title: 'YouTube', url: 'https://www.youtube.com/', host: 'youtube.com', group: '娱乐', dateAdded: 5 },
+    folderPath: '娱乐 / 视频',
+  },
+  {
+    item: { id: 's6', title: 'DeepSeek', url: 'https://chat.deepseek.com/', host: 'chat.deepseek.com', group: 'AI', dateAdded: 6 },
+    folderPath: 'AI',
+  },
+  {
+    item: { id: 's7', title: 'Gmail', url: 'https://mail.google.com/', host: 'mail.google.com', group: '效率', dateAdded: 7 },
+    folderPath: '效率 / 工具 / 邮箱',
+  },
+  {
+    item: { id: 's8', title: '阳光采购系统', url: 'https://sps.example.com/', host: 'sps.example.com', group: '工作', dateAdded: 8 },
+    folderPath: '工作 / ERP 运维',
+  },
+];
+
+// Adjacent letter transposition & typo tolerance
+assert.equal(searchBookmarks(searchFixtures, 'githbu')[0]?.item.id, 's1');
+assert.equal(searchBookmarks(searchFixtures, 'yuotube')[0]?.item.id, 's5');
+// Abbreviation subsequence
+assert.equal(searchBookmarks(searchFixtures, 'gh')[0]?.item.id, 's1');
+// Chinese pinyin initials & full pinyin (with typo tolerance)
+assert.equal(searchBookmarks(searchFixtures, 'tyc')[0]?.item.id, 's2');
+assert.equal(searchBookmarks(searchFixtures, 'jswd')[0]?.item.id, 's3');
+assert.equal(searchBookmarks(searchFixtures, 'jinshanwendang')[0]?.item.id, 's3');
+assert.equal(searchBookmarks(searchFixtures, 'tianyanch')[0]?.item.id, 's2');
+// Multi-word order-independent + folder path search
+assert.equal(searchBookmarks(searchFixtures, '前端 coss')[0]?.item.id, 's4');
+assert.equal(searchBookmarks(searchFixtures, '云文档')[0]?.item.id, 's3');
+// Chinese typo tolerance (length >= 3)
+assert.equal(searchBookmarks(searchFixtures, '金山文挡')[0]?.item.id, 's3');
+// Short ASCII query 'ai' MUST NOT falsely match mid-syllable pinyin (开发/采购) or mid-word (Gmail/mail)
+const aiLocalHits = searchBookmarks(searchFixtures, 'ai').map((m) => m.item.id);
+assert.deepEqual(aiLocalHits, ['s6']);
+
+console.log('PASS search fuzzy typo/transposition, abbreviation, pinyin, precision & folder-path ranking');
 console.log('ALL TESTS PASSED');
