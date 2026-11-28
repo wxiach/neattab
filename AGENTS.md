@@ -1,6 +1,6 @@
 # AGENTS
 
-**NeatTab** 是一款 Edge / Chrome Manifest V3 书签新标签页扩展，默认完全离线运行，仅在用户显式启用 DeepSeek AI 助手时按需请求官方接口。
+**NeatTab** 是一款 Edge / Chrome Manifest V3 书签新标签页扩展，默认完全离线运行，仅在用户显式启用 AI 助手时按需请求对应模型接口。
 
 ## 技术栈与构建
 
@@ -30,11 +30,11 @@ neattab/
 │   │   ├── classifier.ts                     # 本地 TF-IDF 朴素贝叶斯分类器与标题精简
 │   │   ├── transfer.ts                       # 无损保序书签 JSON 导入导出
 │   │   ├── pageContext.ts                    # activeTab + scripting 提取当前页摘要
-│   │   └── ai.ts                             # DeepSeek 单页推荐、批量整理与目录体检
+│   │   └── ai.ts                             # AI 助手接口：单页推荐、批量整理与目录体检
 │   ├── components/
 │   │   ├── ui/                               # 基于 @base-ui/react 与 CVA 的基础组件
 │   │   ├── Favicon.tsx / FontPicker.tsx      # 站点图标 / 32px 行高虚拟滚动本机字体选择器
-│   │   ├── SettingsContent.tsx               # 4 分类系统设置（外观与常规 / AI 助手 / 数据与备份 / 关于与权限）
+│   │   ├── SettingsContent.tsx               # 4 分类系统设置（常规 / 整理与备份 / 模型配置 / 关于与权限）
 │   │   ├── ImportDialog.tsx                  # JSON 导入弹窗（替换/追加模式与实时校验）
 │   │   ├── DedupDialog.tsx                   # 重复书签清理弹窗
 │   │   └── BatchRenameDialog.tsx             # AI 智能整理弹窗（书签整理 + 全局目录体检）
@@ -60,13 +60,13 @@ neattab/
 | `favorites` | 旧版遗留字段（首次加载自动迁移复制到收藏夹栏根目录后清空） |
 | `lastFolderId` | 工具栏弹窗上次保存的目标目录 ID |
 | `mlFeedback` | 本地分类纠错样本（最多保留最近 200 条） |
-| `ai` | DeepSeek 配置：`{ enabled, apiKey, model }`（默认关闭，默认模型 `deepseek-flash`，可选 `deepseek-v4-pro`） |
+| `ai` | AI 助手配置：`{ enabled, apiKey, model }`（默认关闭，默认模型 `deepseek-flash`，可选 `deepseek-v4-pro`） |
 
 另在 `localStorage` 缓存 `nav_theme` 与 `nav_font`，供 `public/boot.js` 在首帧同步恢复外观，消除深色模式闪白。
 
 ## 关键实现与不变量
 
-- **权限与隐私底线**：`permissions` 为 `bookmarks`、`storage`、`favicon`、`activeTab`、`fontSettings`、`scripting`；`optional_host_permissions` 仅声明 `https://api.deepseek.com/*`，只在用户显式开启 DeepSeek AI 助手时申请并发送书签标题、网址、目录名与当前页摘要（不读输入框、不读浏览历史）。禁止私自新增其他网络权限或未声明的第三方请求。
+- **权限与隐私底线**：`permissions` 为 `bookmarks`、`storage`、`favicon`、`activeTab`、`fontSettings`、`scripting`；当前 `optional_host_permissions` 仅声明 `https://api.deepseek.com/*`，只在用户显式开启 AI 助手时申请并发送书签标题、网址、目录名与当前页摘要（不读输入框、不读浏览历史）。新增其他模型提供商时须通过 `optional_host_permissions` 显式声明，禁止未声明的第三方请求。
 - **数据安全与渲染底线**：仅在用户主动操作时修改或删除书签；删除、去重清理、替换导入与 AI 批量整理均须提供显式确认或勾选预览；禁止使用 `dangerouslySetInnerHTML` 或 `innerHTML` 拼接用户数据。
 - **新标签页数据流（`NewtabApp.tsx`、`bookmarks.ts`）**：按 `getTree() → buildRootTree() → useMemo(view)` 单向派生；外部书签变更经 150ms 防抖重新拉取。左侧展示一级与二级分组，三级分组在二级视图内按分段平铺展示；快捷键包括 `/` 搜索、`Tab` 切结果、`Enter` 打开。
 - **收藏副本机制（`favSync.ts`）**：「我的收藏」以数据源根目录（默认「收藏夹栏」）的真实书签副本为唯一来源，新副本插入在现有散装书签末尾、所有子文件夹之前，从而随浏览器原生同步与 iCloud 书签自动同步到多设备及 Safari。「我的收藏」视图按书签所属实际分组分段展示且禁用卡片拖拽移动；编辑标题/网址时须同步更新所有匹配 URL 的副本；全局搜索按 URL 去重。

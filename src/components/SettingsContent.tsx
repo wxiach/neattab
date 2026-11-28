@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Kbd } from './ui/kbd';
 import { Segmented } from './ui/segmented';
 import { NativeSelect } from './ui/select';
 import { Switch } from './ui/switch';
@@ -16,23 +15,23 @@ import { exportRoot, type ImportResult } from '@/lib/transfer';
 import type { AiConfig, OpenMode, Prefs, ThemeMode } from '@/lib/types';
 import { cn } from '@/lib/cn';
 
-export type SettingsTab = 'general' | 'ai' | 'data' | 'about';
+export type SettingsTab = 'general' | 'data' | 'ai' | 'about';
 
 const TAB_ITEMS: ReadonlyArray<{ id: SettingsTab; label: string }> = [
-  { id: 'general', label: '外观与常规' },
-  { id: 'ai', label: 'AI 助手' },
-  { id: 'data', label: '数据与备份' },
+  { id: 'general', label: '常规' },
+  { id: 'data', label: '整理与备份' },
+  { id: 'ai', label: '模型配置' },
   { id: 'about', label: '关于与权限' },
 ];
 
 const PERMISSIONS_LIST: ReadonlyArray<{ key: string; desc: string }> = [
-  { key: 'bookmarks', desc: '读写浏览器收藏夹（仅在编辑、拖拽、批量重命名或收藏时写入）' },
-  { key: 'storage', desc: '保存本地设置、星标收藏、分类样本与 DeepSeek 配置' },
+  { key: 'bookmarks', desc: '读写浏览器收藏夹（仅在编辑、拖拽、整理、去重或收藏时写入）' },
+  { key: 'storage', desc: '保存本地设置、分类样本与 AI 助手配置' },
   { key: 'favicon', desc: '读取浏览器本地站点图标缓存' },
   { key: 'activeTab', desc: '点击工具栏图标时读取当前页标题与网址' },
   { key: 'scripting', desc: '启用 AI 时提取当前页简介与正文前 400 字摘要辅助分类（不读输入框）' },
   { key: 'fontSettings', desc: '列出本机已安装的系统字体' },
-  { key: 'api.deepseek.com', desc: '可选权限：仅在启用 DeepSeek AI 助手时单独申请并访问' },
+  { key: 'api.deepseek.com', desc: '可选权限：仅在启用 AI 助手时单独申请并访问' },
 ];
 
 export function SettingsContent({
@@ -164,7 +163,6 @@ export function SettingsContent({
         <div className={labelCls}>字体</div>
         <div className="min-w-0">
           <FontPicker value={prefs.font} onChange={(font) => onPatch({ font })} />
-          <p className={hintCls}>读取本机已安装字体，支持关键词搜索，选中后实时生效。</p>
         </div>
       </section>
 
@@ -180,10 +178,65 @@ export function SettingsContent({
             ]}
             onChange={(openMode) => onPatch({ openMode })}
           />
-          <p className={hintCls}>
-            按住 <Kbd className="h-[18px] min-w-[18px] px-1 mx-0.5 align-[1px]">Ctrl</Kbd> /{' '}
-            <Kbd className="h-[18px] min-w-[18px] px-1 mx-0.5 align-[1px]">⌘</Kbd> 或中键点击，始终在新标签页打开。
-          </p>
+        </div>
+      </section>
+
+      <section className={rowCls}>
+        <div className={labelCls}>数据来源</div>
+        <div className="min-w-0 max-w-[340px]">
+          <NativeSelect
+            aria-label="数据来源"
+            value={prefs.rootId}
+            onChange={(e) => onPatch({ rootId: e.target.value })}
+          >
+            {roots.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
+          </NativeSelect>
+          <p className={hintCls}>仅展示所选目录下的书签。</p>
+        </div>
+      </section>
+    </>
+  );
+
+  const renderData = () => (
+    <>
+      {onOpenBatchRename && (
+        <section className={rowCls}>
+          <div className={labelCls}>AI 整理</div>
+          <div className="min-w-0">
+            <Button variant="outline" onClick={onOpenBatchRename}>
+              AI 智能整理
+            </Button>
+            <p className={hintCls}>批量重命名、归类与目录体检，执行前自动备份。</p>
+          </div>
+        </section>
+      )}
+
+      <section className={rowCls}>
+        <div className={labelCls}>重复书签</div>
+        <div className="min-w-0">
+          <Button variant="outline" onClick={() => setDedupOpen(true)}>
+            扫描重复书签
+          </Button>
+          <p className={hintCls}>自动保留根目录的收藏副本，多余项可删除或移回「我的收藏」。</p>
+        </div>
+      </section>
+
+      <section className={rowCls}>
+        <div className={labelCls}>导入导出</div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExport}>
+              导出 JSON
+            </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              导入 JSON
+            </Button>
+          </div>
+          <p className={hintCls}>替换导入前自动下载备份，保留原顺序与收藏时间。</p>
         </div>
       </section>
     </>
@@ -192,21 +245,19 @@ export function SettingsContent({
   const renderAi = () => (
     <>
       <section className={rowCls}>
-        <div className={labelTextCls}>DeepSeek</div>
+        <div className={labelTextCls}>启用状态</div>
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <Switch
               checked={prefs.ai.enabled}
-              onCheckedChange={(enabled) => updateAi({ enabled }, enabled ? '已启用 DeepSeek' : '已关闭 DeepSeek')}
-              aria-label="启用 DeepSeek 智能分类与命名"
+              onCheckedChange={(enabled) => updateAi({ enabled }, enabled ? '已启用 AI 助手' : '已关闭 AI 助手')}
+              aria-label="启用 AI 智能分类与命名"
             />
             <span className="text-[13px] font-medium text-ink">
               {prefs.ai.enabled ? '已启用' : '未启用（仅使用本地模型）'}
             </span>
           </div>
-          <p className={hintCls}>
-            启用后，收藏弹窗会 0ms 先展示本地结果，同时后台调用 DeepSeek 自动优化分组与精简命名（若你已手动编辑则不覆盖）。
-          </p>
+          <p className={hintCls}>开启后用于智能收藏优化与批量整理。</p>
         </div>
       </section>
 
@@ -252,10 +303,7 @@ export function SettingsContent({
               </Badge>
             </div>
           )}
-          <p className={hintCls}>
-            仅保存在本机浏览器存储（<code className="font-mono text-[11px] px-1 border border-line2 bg-background">chrome.storage.local</code>），仅请求{' '}
-            <code className="font-mono text-[11px] px-1 border border-line2 bg-background">api.deepseek.com</code>。
-          </p>
+          <p className={hintCls}>仅保存在本机浏览器存储中。</p>
         </div>
       </section>
 
@@ -263,7 +311,7 @@ export function SettingsContent({
         <div className={labelCls}>模型</div>
         <div className="min-w-0 max-w-[340px]">
           <NativeSelect
-            aria-label="DeepSeek 模型"
+            aria-label="AI 模型"
             value={prefs.ai.model}
             onChange={(e) => updateAi({ model: e.target.value })}
           >
@@ -273,76 +321,6 @@ export function SettingsContent({
               </option>
             ))}
           </NativeSelect>
-          <p className={hintCls}>
-            已自动为 V4.1 Flash / V4 Pro 关闭思考模式（<code className="font-mono text-[11px] px-1 border border-line2 bg-background">thinking: disabled</code>），兼顾准确率与响应速度。
-          </p>
-        </div>
-      </section>
-
-      {onOpenBatchRename && (
-        <section className={rowCls}>
-          <div className={labelCls}>批量整理</div>
-          <div className="min-w-0">
-            <Button variant="outline" onClick={onOpenBatchRename}>
-              <Sparkles className="w-3.5 h-3.5 text-ink2" />
-              AI 智能整理（重命名 / 归类 / 目录体检）…
-            </Button>
-            <p className={hintCls}>
-              支持按分组批量建议重命名与归类，也支持全局目录体检（合并过碎分类、清理空目录、目录改名与拆分），执行前自动备份。
-            </p>
-          </div>
-        </section>
-      )}
-    </>
-  );
-
-  const renderData = () => (
-    <>
-      <section className={rowCls}>
-        <div className={labelCls}>数据来源</div>
-        <div className="min-w-0 max-w-[340px]">
-          <NativeSelect
-            aria-label="数据来源"
-            value={prefs.rootId}
-            onChange={(e) => onPatch({ rootId: e.target.value })}
-          >
-            {roots.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
-          </NativeSelect>
-          <p className={hintCls}>新标签页仅展示所选目录中的书签，默认读取「收藏夹栏」。</p>
-        </div>
-      </section>
-
-      <section className={rowCls}>
-        <div className={labelCls}>导入导出</div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExport}>
-              导出 JSON
-            </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              导入 JSON
-            </Button>
-          </div>
-          <p className={hintCls}>导出精简 JSON，方便备份或交由 AI 整理分类。</p>
-          <p className="mt-1.5 text-[12.5px] leading-[1.68] text-ink2">
-            导入支持选择文件或直接粘贴，替换前自动下载备份并严格保持原有顺序与收藏时间。
-          </p>
-        </div>
-      </section>
-
-      <section className={rowCls}>
-        <div className={labelCls}>重复书签</div>
-        <div className="min-w-0">
-          <Button variant="outline" onClick={() => setDedupOpen(true)}>
-            扫描重复书签…
-          </Button>
-          <p className={hintCls}>
-            检查同一网址的多余副本（根目录的收藏副本自动保留，不计为重复），支持逐项删除或移回「我的收藏」。
-          </p>
         </div>
       </section>
     </>
@@ -354,7 +332,7 @@ export function SettingsContent({
         <div className={labelTextCls}>隐私说明</div>
         <div className="min-w-0">
           <p className="m-0 text-[13px] leading-[1.68] text-ink">
-            默认完全在本地运行，不读取浏览历史，无任何统计追踪。仅当你主动开启 DeepSeek AI 助手时，才向官方接口发送当前书签标题、网址与目录名。
+            默认完全在本地运行，不读取浏览历史，无任何统计追踪。仅当你主动开启 AI 助手时，才向对应模型接口发送当前书签标题、网址与目录名。
           </p>
         </div>
       </section>
@@ -413,24 +391,24 @@ export function SettingsContent({
 
           <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
             {tab === 'general' && renderGeneral()}
-            {tab === 'ai' && renderAi()}
             {tab === 'data' && renderData()}
+            {tab === 'ai' && renderAi()}
             {tab === 'about' && renderAbout()}
           </div>
         </div>
       ) : (
         <div className="space-y-6">
           <div>
-            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">外观与常规</h2>
+            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">常规</h2>
             <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderGeneral()}</div>
           </div>
           <div>
-            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">AI 助手</h2>
-            <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderAi()}</div>
+            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">整理与备份</h2>
+            <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderData()}</div>
           </div>
           <div>
-            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">数据与备份</h2>
-            <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderData()}</div>
+            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">模型配置</h2>
+            <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderAi()}</div>
           </div>
           <div>
             <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">关于与权限</h2>

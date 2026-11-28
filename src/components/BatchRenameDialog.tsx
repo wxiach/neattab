@@ -469,9 +469,9 @@ export function BatchRenameDialog({
         {!aiConfigured ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">
             <Sparkles className="w-7 h-7 text-accent" />
-            <p className="m-0 text-sm font-semibold text-ink">尚未启用 DeepSeek AI 助手</p>
+            <p className="m-0 text-sm font-semibold text-ink">尚未启用 AI 模型</p>
             <p className="m-0 max-w-[380px] text-[12.5px] leading-relaxed text-ink2">
-              请先在「系统设置 → AI 助手」中填写你的 DeepSeek API Key 并开启开关，即可使用批量整理与目录体检。
+              请先在「系统设置 → 模型配置」中填写 API Key 并开启开关，即可使用批量整理与目录体检。
             </p>
             <Button
               className="mt-2"
@@ -480,7 +480,7 @@ export function BatchRenameDialog({
                 onOpenAiSettings();
               }}
             >
-              前往配置 DeepSeek
+              前往模型配置
             </Button>
           </div>
         ) : (
