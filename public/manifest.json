@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NeatTab — 书签导航",
   "short_name": "NeatTab",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "把收藏夹栏变成一张高效书签索引页，支持本地模型与可选 DeepSeek 智能分类命名、AI 批量重命名与本机系统字体。",
   "minimum_chrome_version": "110",
   "permissions": ["bookmarks", "storage", "favicon", "activeTab", "fontSettings", "scripting"],

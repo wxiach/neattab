@@ -90,3 +90,8 @@ pnpm run build
 # 运行核心逻辑单元测试（分类器、导入导出、收藏同步、去重）
 pnpm test
 ```
+
+## 发版约定
+
+- 采用语义化版本 `0.x.y`：新增完整功能块升中间位（`0.2.0`），修 bug 与打磨细节升末尾位（`0.1.1`）。
+- 发版时同步修改 `package.json` 与 `public/manifest.json` 的 `version`，执行 `pnpm run build && pnpm test` 通过后提交、打 `vX.Y.Z` tag 并推送，将 `dist/` 内容打包为 `neattab-vX.Y.Z.zip` 上传至对应 GitHub Release。

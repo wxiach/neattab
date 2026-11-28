@@ -33,6 +33,14 @@
 
 ## 安装与更新
 
+### 方式一：下载安装包（推荐，无需 Node 环境）
+
+1. 前往 [Releases](https://github.com/wxiach/neattab/releases) 下载最新版本的 `neattab-v*.zip` 并解压。
+2. 打开 `edge://extensions`（Chrome 为 `chrome://extensions`），开启 **开发人员模式**。
+3. 点击 **加载解压缩的扩展**，选择解压后的目录即可。
+
+### 方式二：从源码构建
+
 前置环境：Node.js 22+、`pnpm`。
 
 1. 克隆仓库并构建：
@@ -47,4 +55,4 @@
 2. 打开 `edge://extensions`（Chrome 为 `chrome://extensions`），开启 **开发人员模式**。
 3. 点击 **加载解压缩的扩展**，选择生成的 **`dist/`** 目录。
 
-拉取更新后，重新执行 `pnpm run build`，在扩展管理页点击 **重新加载** 即可。
+拉取源码更新后，重新执行 `pnpm run build`，在扩展管理页点击 **重新加载** 即可。
