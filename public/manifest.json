@@ -3,7 +3,7 @@
   "name": "NeatTab — 书签导航",
   "short_name": "NeatTab",
   "version": "0.1.0",
-  "description": "把收藏夹栏变成一张高效书签索引页，支持本地模型与可选 DeepSeek 智能分类命名、AI 批量重命名与本机系统字体。",
+  "description": "把收藏夹栏变成一张高效书签索引页，支持多级目录、跨设备收藏、重复书签清理、可选 AI 智能整理与本机系统字体。",
   "minimum_chrome_version": "110",
   "permissions": ["bookmarks", "storage", "favicon", "activeTab", "fontSettings", "scripting"],
   "optional_host_permissions": ["https://api.deepseek.com/*"],

@@ -22,7 +22,6 @@ export const DEFAULTS: Prefs = {
   expanded: null,
   favorites: [],
   lastFolderId: '',
-  mlFeedback: [],
   ai: { ...DEFAULT_AI },
 };
 
@@ -125,7 +124,6 @@ export function normalizePrefs(raw: Partial<Prefs> | undefined): Prefs {
     expanded: Array.isArray(raw?.expanded) ? raw.expanded.filter((x): x is string => typeof x === 'string') : null,
     favorites: Array.isArray(raw?.favorites) ? raw.favorites.filter((x): x is string => typeof x === 'string') : [],
     lastFolderId: typeof raw?.lastFolderId === 'string' ? raw.lastFolderId : '',
-    mlFeedback: Array.isArray(raw?.mlFeedback) ? raw.mlFeedback : [],
     ai: {
       enabled: Boolean(aiRaw.enabled),
       apiKey: typeof aiRaw.apiKey === 'string' ? aiRaw.apiKey.trim() : '',

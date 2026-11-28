@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import vm from 'node:vm';
 import {
   buildRootTree,
 } from '../src/lib/bookmarks.ts';
 import {
-  buildFolders,
   cleanTitle,
   detectPageKind,
   parseUrl,
-  trainLocalModel,
-} from '../src/lib/classifier.ts';
+} from '../src/lib/urlRules.ts';
 import {
   addFavoriteCopyToRoot,
   collectGroupedUrls,
@@ -29,7 +24,7 @@ import {
   parseImportText,
 } from '../src/lib/transfer.ts';
 
-// 1. Classifier & cleanTitle tests
+// 1. URL parsing, page kind detection & title cleanup tests
 const u1 = parseUrl('https://www.v2ex.com/t/1259639#reply105');
 const u2 = parseUrl('https://www.v2ex.com/');
 assert.equal(detectPageKind(u1).kind, 'content');
@@ -39,35 +34,7 @@ assert.equal(u2.trimHash, '');
 
 const gh = parseUrl('https://github.com/wxiach/neattab');
 assert.equal(cleanTitle('GitHub - wxiach/neattab: bookmark new tab', gh, detectPageKind(gh)), 'wxiach/neattab');
-
-// LOO-CV against tests/fixture-tree.js
-const previewTreePath = path.resolve(process.cwd(), 'tests/fixture-tree.js');
-if (fs.existsSync(previewTreePath)) {
-  const sb: { window: { __NAV_TREE__?: chrome.bookmarks.BookmarkTreeNode } } = { window: {} };
-  vm.runInNewContext(fs.readFileSync(previewTreePath, 'utf8'), sb);
-  const root = sb.window.__NAV_TREE__!.children![0];
-  const allFolders = buildFolders(root);
-  const leafFolders = allFolders.filter((f) => !f.isRoot && f.items.length > 0);
-  let total = 0;
-  let top1 = 0;
-  let top3 = 0;
-  for (const tf of leafFolders) {
-    for (const bm of tf.items) {
-      total += 1;
-      const heldOut = allFolders.map((f) =>
-        f.id === tf.id ? { ...f, items: f.items.filter((x) => x.id !== bm.id) } : f,
-      );
-      const pred = trainLocalModel(heldOut, []).predict(bm.url || '', bm.title || '', '');
-      if (pred.best?.id === tf.id) {
-        top1 += 1;
-        top3 += 1;
-      } else if (pred.candidates.some((c) => c.id === tf.id)) {
-        top3 += 1;
-      }
-    }
-  }
-  console.log(`PASS classifier | LOO-CV Top-1 ${top1}/${total}, Top-3 ${top3}/${total}`);
-}
+console.log('PASS urlRules parseUrl, detectPageKind & cleanTitle');
 
 // 2. Transfer lossless import/export tests with mock chrome.bookmarks
 type Node = chrome.bookmarks.BookmarkTreeNode;

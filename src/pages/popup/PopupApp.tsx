@@ -23,13 +23,11 @@ import {
   detectPageKind,
   findReadingFolder,
   parseUrl,
-  trainLocalModel,
-} from '@/lib/classifier';
+} from '@/lib/urlRules';
 import { applyFont, applyTheme, DEFAULTS, loadPrefs, savePrefs } from '@/lib/storage';
 import type { ClassifierFolder, PageKind, Prefs, UrlInfo } from '@/lib/types';
 import { cn } from '@/lib/cn';
 
-const MAX_FEEDBACK = 200;
 const NEW_PREFIX = '__new__:';
 const READING_DEFAULT_NAME = '阅读清单';
 
@@ -64,7 +62,6 @@ export function PopupApp() {
   const [aiSuggestedTitle, setAiSuggestedTitle] = useState('');
   const [title, setTitle] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('');
-  const [predictedId, setPredictedId] = useState('');
   const [quickPicks, setQuickPicks] = useState<ClassifierFolder[]>([]);
   const [offerReading, setOfferReading] = useState(false);
   const [aiNewFolder, setAiNewFolder] = useState<PendingFolder | null>(null);
@@ -162,19 +159,17 @@ export function PopupApp() {
           );
           if (forceOverwrite || !userTouchedFolderRef.current) {
             setSelectedFolder(val);
-            setPredictedId(val);
           }
           setReasonLine(
             readBody
-              ? `DeepSeek 已分析内容 · 建议新建「${displayLabel}」`
-              : `DeepSeek 建议新建「${displayLabel}」`,
+              ? `AI 已分析内容 · 建议新建「${displayLabel}」`
+              : `AI 建议新建「${displayLabel}」`,
           );
         } else if (res.folderId) {
           setAiNewFolder(null);
           const folder = args.folderList.find((f) => f.id === res.folderId);
           if (forceOverwrite || !userTouchedFolderRef.current) {
             setSelectedFolder(res.folderId);
-            setPredictedId(res.folderId);
           }
           if (folder) {
             setQuickPicks((prev) => {
@@ -183,20 +178,20 @@ export function PopupApp() {
             });
             setReasonLine(
               readBody
-                ? `DeepSeek 已分析页面内容 · 推荐「${folder.pathLabel}」`
-                : `DeepSeek 推荐「${folder.pathLabel}」`,
+                ? `AI 已分析页面内容 · 推荐「${folder.pathLabel}」`
+                : `AI 推荐「${folder.pathLabel}」`,
             );
           }
         }
 
-        setMatchHint(res.reason || 'DeepSeek 智能推荐');
-        setBadgeText(`DeepSeek · ${res.latencyMs}ms`);
+        setMatchHint(res.reason || 'AI 智能推荐');
+        setBadgeText(`AI · ${res.latencyMs}ms`);
         setBadgeVariant('success');
         setAiStatus('done');
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setAiStatus('error');
-        setAiError(err instanceof Error ? err.message : 'DeepSeek 请求失败');
+        setAiError(err instanceof Error ? err.message : 'AI 请求失败');
       } finally {
         if (aiAbortRef.current === ac) aiAbortRef.current = null;
       }
@@ -311,18 +306,20 @@ export function PopupApp() {
         setSelectedFolder(curF ? curF.id : root.id);
         setFavChecked(looseUrlSet.has(hitExisting.url || uInfo.cleanUrl));
       } else {
-        const rec = trainLocalModel(folderList, loadedPrefs.mlFeedback).predict(
-          uInfo.cleanUrl,
-          activeTab.title || '',
-          loadedPrefs.lastFolderId,
-        );
+        const lastFolder = folderList.find((f) => f.id === loadedPrefs.lastFolderId) || null;
+        const firstFolder =
+          folderList.find((f) => !f.isRoot && !f.hasChildren) ||
+          folderList.find((f) => !f.isRoot) ||
+          folderList[0] ||
+          null;
+        const fallbackFolder = lastFolder || firstFolder;
         const readingFolder = findReadingFolder(folderList);
 
-        let chosenVal = rec.best ? rec.best.id : root.id;
-        let reason = `推荐归入「${rec.best ? rec.best.pathLabel : root.title}」`;
-        let hint = rec.reason;
-        let badge = rec.confidence ? `本地模型 ${rec.confidence}%` : '本地模型';
-        let quick = [...rec.candidates];
+        let chosenVal = fallbackFolder ? fallbackFolder.id : root.id;
+        let reason = lastFolder ? `默认归入上次使用的「${lastFolder.pathLabel}」` : '请选择保存分组';
+        let hint = '';
+        let badge = '';
+        let quick: ClassifierFolder[] = [];
         let wantReading = false;
         const pending: PendingFolder[] = [];
 
@@ -332,13 +329,14 @@ export function PopupApp() {
             reason = `识别为具体内容，优先归入「${readingFolder.pathLabel}」`;
             hint = '内容页 · 优先阅读清单';
             badge = '阅读清单';
-            quick = [readingFolder, ...rec.candidates];
+            quick = fallbackFolder ? [readingFolder, fallbackFolder] : [readingFolder];
           } else {
             chosenVal = `${NEW_PREFIX}${READING_DEFAULT_NAME}`;
             pending.push({ value: chosenVal, title: READING_DEFAULT_NAME });
             reason = '识别为帖子/文章，建议与站点入口分开存放';
             hint = '建议新建阅读清单';
             badge = '内容页';
+            quick = fallbackFolder ? [fallbackFolder] : [];
             wantReading = true;
           }
         }
@@ -348,7 +346,6 @@ export function PopupApp() {
         const cleanedT = cleanTitle(origT, uInfo, kind);
 
         setPendingFolders(pending);
-        setPredictedId(chosenVal);
         setSelectedFolder(chosenVal);
         setQuickPicks(dedupQuick);
         setOfferReading(wantReading);
@@ -360,7 +357,7 @@ export function PopupApp() {
         setBadgeText(badge);
         setBadgeVariant('info');
 
-        // 0ms 先出本地兜底，后台提取当前页内容摘要并请求 DeepSeek（未手动编辑则静默更新）
+        // 启用 AI 时，后台提取当前页内容摘要并请求推荐（未手动编辑则静默更新）
         if (isAiReady(loadedPrefs.ai)) {
           runDeepSeek(
             {
@@ -469,17 +466,11 @@ export function PopupApp() {
         }
       }
 
-      const corrected = Boolean(predictedId) && selectedFolder !== predictedId;
-      const nextFeedback = [
-        { url: finalUrl, title: finalTitle, folderId: parentId, corrected },
-        ...prefs.mlFeedback.filter((i) => i && i.url !== finalUrl),
-      ].slice(0, MAX_FEEDBACK);
-
-      await savePrefs({ mlFeedback: nextFeedback, lastFolderId: parentId });
+      await savePrefs({ lastFolderId: parentId });
 
       setNotice({
         title: existing ? '已更新收藏' : '已加入收藏',
-        subtitle: `分组：${targetName}${corrected ? '（已学习本次选择）' : ''}`,
+        subtitle: `分组：${targetName}`,
       });
       setTimeout(() => window.close(), 560);
     } catch {
@@ -541,7 +532,7 @@ export function PopupApp() {
           {aiStatus === 'loading' ? (
             <Badge variant="info">
               <Loader2 className="w-3 h-3 animate-spin" />
-              DeepSeek 思考中…
+              AI 分析中…
             </Badge>
           ) : (
             badgeText && (
@@ -556,7 +547,7 @@ export function PopupApp() {
             <button
               type="button"
               disabled={aiStatus === 'loading'}
-              title={aiStatus === 'error' ? `重试 DeepSeek（${aiError}）` : '用 DeepSeek 重新推荐分组与命名'}
+              title={aiStatus === 'error' ? `重试 AI（${aiError}）` : '用 AI 重新推荐分组与命名'}
               onClick={() => {
                 userTouchedTitleRef.current = false;
                 userTouchedFolderRef.current = false;
@@ -615,7 +606,7 @@ export function PopupApp() {
                 <Badge variant={pageKind.kind === 'content' ? 'warning' : 'default'}>{pageKind.label}</Badge>
               </div>
               <div className="text-[11px] text-ink3 truncate">
-                {aiStatus === 'error' ? `${reasonLine}（DeepSeek：${aiError}）` : reasonLine}
+                {aiStatus === 'error' ? `${reasonLine}（AI：${aiError}）` : reasonLine}
               </div>
             </div>
           </div>

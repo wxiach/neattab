@@ -1,13 +1,6 @@
 export type ThemeMode = 'auto' | 'light' | 'dark';
 export type OpenMode = 'tab' | 'same';
 
-export interface FeedbackSample {
-  url: string;
-  title: string;
-  folderId: string;
-  corrected: boolean;
-}
-
 export interface PersistedView {
   folderId?: string;
   topId?: string;
@@ -29,7 +22,6 @@ export interface Prefs {
   expanded: string[] | null;
   favorites: string[];
   lastFolderId: string;
-  mlFeedback: FeedbackSample[];
   ai: AiConfig;
 }
 

@@ -27,7 +27,7 @@ const TAB_ITEMS: ReadonlyArray<{ id: SettingsTab; label: string }> = [
 
 const PERMISSIONS_LIST: ReadonlyArray<{ key: string; desc: string }> = [
   { key: 'bookmarks', desc: '读写浏览器收藏夹（仅在编辑、拖拽、整理、去重或收藏时写入）' },
-  { key: 'storage', desc: '保存本地设置、分类样本与 AI 助手配置' },
+  { key: 'storage', desc: '保存本地设置与模型配置' },
   { key: 'favicon', desc: '读取浏览器本地站点图标缓存' },
   { key: 'activeTab', desc: '点击工具栏图标时读取当前页标题与网址' },
   { key: 'scripting', desc: '启用 AI 时提取当前页简介与正文前 400 字摘要辅助分类（不读输入框）' },
@@ -255,7 +255,7 @@ export function SettingsContent({
               aria-label="启用 AI 智能分类与命名"
             />
             <span className="text-[13px] font-medium text-ink">
-              {prefs.ai.enabled ? '已启用' : '未启用（仅使用本地模型）'}
+              {prefs.ai.enabled ? '已启用' : '未启用'}
             </span>
           </div>
           <p className={hintCls}>开启后用于智能收藏优化与批量整理。</p>
