@@ -54,7 +54,7 @@
 
   --brand-sz: 30px;
   --brand-fs: 13.5px;
-  --search-w: 360px;
+  --search-w: 480px;
   --search-h: 36px;
   --top-btn-sz: 32px;
 
@@ -135,7 +135,7 @@
 
     --brand-sz: 36px;
     --brand-fs: 15.5px;
-    --search-w: 440px;
+    --search-w: 560px;
     --search-h: 42px;
     --top-btn-sz: 38px;
 
@@ -173,7 +173,7 @@
 
     --brand-sz: 42px;
     --brand-fs: 17.5px;
-    --search-w: 540px;
+    --search-w: 660px;
     --search-h: 48px;
     --top-btn-sz: 44px;
 

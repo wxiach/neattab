@@ -501,6 +501,13 @@ export function NewtabApp() {
       const typing = active === searchInputRef.current;
       const inField = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
 
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus({ preventScroll: true });
+        searchInputRef.current?.select();
+        return;
+      }
+
       if (e.key === '/') {
         if (!inField) {
           e.preventDefault();
@@ -509,6 +516,20 @@ export function NewtabApp() {
         } else if (typing && !query) {
           e.preventDefault();
         }
+        return;
+      }
+
+      // 页面内无弹窗且未聚焦输入框时，直接敲字符自动聚焦搜索框开始检索
+      if (
+        !inField &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.isComposing &&
+        e.key.length === 1 &&
+        e.key !== ' '
+      ) {
+        searchInputRef.current?.focus({ preventScroll: true });
         return;
       }
 
@@ -768,9 +789,9 @@ export function NewtabApp() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-ink">
-      {/* 顶栏 */}
+      {/* 顶栏：极简左右结构（品牌 + 主题切换） */}
       <header className="no-print sticky top-0 z-20 h-[var(--topbar-h)] topbar-glass border-b border-line">
-        <div className="nav-container nav-shell h-full items-center! max-[960px]:flex max-[960px]:justify-between">
+        <div className="nav-container h-full flex items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2.5 min-w-0">
             <span
               style={{ width: 'var(--brand-sz)', height: 'var(--brand-sz)' }}
@@ -794,10 +815,98 @@ export function NewtabApp() {
             </span>
           </div>
 
-          <div className="flex items-center justify-between gap-3 min-w-0 max-[960px]:flex-1 max-[960px]:justify-end">
+          <button
+            type="button"
+            title="切换浅色 / 深色"
+            aria-label="切换主题"
+            onClick={() => {
+              const next = resolvedTheme === 'dark' ? 'light' : 'dark';
+              handlePatchPrefs({ theme: next }, '');
+            }}
+            style={{ width: 'var(--top-btn-sz)', height: 'var(--top-btn-sz)' }}
+            className="inline-flex items-center justify-center border border-transparent text-ink2 hover:bg-background hover:border-line hover:text-ink cursor-pointer transition-colors"
+          >
+            {resolvedTheme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+        </div>
+      </header>
+
+      {/* 主体两栏 */}
+      <div className="nav-container nav-shell flex-1">
+        <SidebarNav
+          tops={tree.tops}
+          rootId={tree.resolvedRootId || prefs.rootId}
+          folderId={folderId}
+          query={query}
+          favCount={favCount}
+          expanded={expanded}
+          activeAncestors={activeAncestors}
+          canEdit={canEdit}
+          drag={drag}
+          trashOver={trashOver}
+          dropIndicator={dropIndicator}
+          isDescendant={isDescendant}
+          onSelectFolder={selectFolder}
+          onOpenSettings={() => {
+            setSettingsTab('general');
+            setSettingsOpen(true);
+          }}
+          onOpenCreate={openCreateDialog}
+          onOpenEdit={openEditDialog}
+          onOpenDelete={openDeleteDialog}
+          onStartDrag={startDrag}
+          onEndDrag={endDrag}
+          onTrashOverChange={setTrashOver}
+          onDropIndicatorChange={setDropIndicator}
+          onMoveInto={doMoveInto}
+          onMoveRel={doMoveRel}
+        />
+
+        {/* 右侧主内容 */}
+        <div className="min-w-0 min-h-[calc(100vh-var(--topbar-h))] flex flex-col pt-[var(--main-pt)]">
+          {/* 标题 / 面包屑与搜索栏同行对齐 */}
+          <div className="flex items-center justify-between gap-4 mb-[var(--head-mb)] min-h-[var(--search-h)] max-[640px]:flex-col max-[640px]:items-stretch max-[640px]:gap-2.5">
+            <div style={{ fontSize: 'var(--fs-title)' }} className="flex items-center gap-2 min-w-0 text-ink3 whitespace-nowrap">
+              {view.filter === 'search' ? (
+                <>
+                  <span style={{ fontSize: 'var(--fs-sub)' }} className="text-ink2 tabular-nums">
+                    {view.hits ?? 0} 项结果
+                  </span>
+                  {aiSearchStatus === 'error' && aiSearchErr && (
+                    <Badge variant="danger">{aiSearchErr}</Badge>
+                  )}
+                </>
+              ) : (
+                view.crumb.map((entry, idx) => {
+                  const last = idx === view.crumb.length - 1;
+                  return (
+                    <React.Fragment key={`${entry.title}-${idx}`}>
+                      {idx > 0 && <span className="text-line3">/</span>}
+                      {!last && entry.folderId ? (
+                        <button
+                          type="button"
+                          onClick={() => selectFolder(entry.folderId!)}
+                          className="px-1.5 py-0.5 -mx-1.5 border-0 bg-transparent text-ink3 hover:bg-hover hover:text-ink cursor-pointer"
+                        >
+                          {entry.title}
+                        </button>
+                      ) : (
+                        <span
+                          style={last ? { fontSize: 'var(--fs-cur)' } : undefined}
+                          className={cn(last && 'font-semibold tracking-[-0.01em] text-ink truncate')}
+                        >
+                          {entry.title}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              )}
+            </div>
+
             <div
-              style={{ width: 'min(var(--search-w), 60%)', height: 'var(--search-h)' }}
-              className="max-[960px]:w-[min(300px,52vw)]! flex items-center gap-2 px-2.5 pl-3 border border-line bg-background transition-all hover:border-line2 focus-within:bg-surface focus-within:border-accent-line focus-within:shadow-[0_0_0_3px_var(--blue-soft)]"
+              style={{ width: 'min(var(--search-w), 64%)', height: 'var(--search-h)' }}
+              className="no-print shrink-0 max-[640px]:w-full! flex items-center gap-2 px-2.5 pl-3 border border-line bg-surface shadow-[var(--shadow-card)] transition-all hover:border-line2 focus-within:border-accent-line focus-within:shadow-[0_0_0_3px_var(--blue-soft)]"
             >
               <Search className="w-3.5 h-3.5 text-ink3 shrink-0" />
               <input
@@ -856,94 +965,6 @@ export function NewtabApp() {
                 <Kbd className="text-ink3">/</Kbd>
               )}
             </div>
-
-            <button
-              type="button"
-              title="切换浅色 / 深色"
-              aria-label="切换主题"
-              onClick={() => {
-                const next = resolvedTheme === 'dark' ? 'light' : 'dark';
-                handlePatchPrefs({ theme: next }, '');
-              }}
-              style={{ width: 'var(--top-btn-sz)', height: 'var(--top-btn-sz)' }}
-              className="inline-flex items-center justify-center border border-transparent text-ink2 hover:bg-background hover:border-line hover:text-ink cursor-pointer transition-colors"
-            >
-              {resolvedTheme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* 主体两栏 */}
-      <div className="nav-container nav-shell flex-1">
-        <SidebarNav
-          tops={tree.tops}
-          rootId={tree.resolvedRootId || prefs.rootId}
-          folderId={folderId}
-          query={query}
-          favCount={favCount}
-          expanded={expanded}
-          activeAncestors={activeAncestors}
-          canEdit={canEdit}
-          drag={drag}
-          trashOver={trashOver}
-          dropIndicator={dropIndicator}
-          isDescendant={isDescendant}
-          onSelectFolder={selectFolder}
-          onOpenSettings={() => {
-            setSettingsTab('general');
-            setSettingsOpen(true);
-          }}
-          onOpenCreate={openCreateDialog}
-          onOpenEdit={openEditDialog}
-          onOpenDelete={openDeleteDialog}
-          onStartDrag={startDrag}
-          onEndDrag={endDrag}
-          onTrashOverChange={setTrashOver}
-          onDropIndicatorChange={setDropIndicator}
-          onMoveInto={doMoveInto}
-          onMoveRel={doMoveRel}
-        />
-
-        {/* 右侧主内容 */}
-        <div className="min-w-0 min-h-[calc(100vh-var(--topbar-h))] flex flex-col pt-[var(--main-pt)]">
-          <div className="flex items-center justify-between gap-3 mb-[var(--head-mb)] min-h-[var(--top-btn-sz)]">
-            <div style={{ fontSize: 'var(--fs-title)' }} className="flex items-center gap-2 min-w-0 text-ink3 whitespace-nowrap">
-              {view.filter === 'search' ? (
-                <span style={{ fontSize: 'var(--fs-sub)' }} className="text-ink2 tabular-nums">
-                  {view.hits ?? 0} 项结果
-                </span>
-              ) : (
-                view.crumb.map((entry, idx) => {
-                  const last = idx === view.crumb.length - 1;
-                  return (
-                    <React.Fragment key={`${entry.title}-${idx}`}>
-                      {idx > 0 && <span className="text-line3">/</span>}
-                      {!last && entry.folderId ? (
-                        <button
-                          type="button"
-                          onClick={() => selectFolder(entry.folderId!)}
-                          className="px-1.5 py-0.5 -mx-1.5 border-0 bg-transparent text-ink3 hover:bg-hover hover:text-ink cursor-pointer"
-                        >
-                          {entry.title}
-                        </button>
-                      ) : (
-                        <span
-                          style={last ? { fontSize: 'var(--fs-cur)' } : undefined}
-                          className={cn(last && 'font-semibold tracking-[-0.01em] text-ink truncate')}
-                        >
-                          {entry.title}
-                        </span>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </div>
-
-            {view.filter === 'search' && aiSearchStatus === 'error' && aiSearchErr && (
-              <Badge variant="danger">{aiSearchErr}</Badge>
-            )}
           </div>
 
           <main className="bg-surface border border-line shadow-[var(--shadow-card)] overflow-hidden">
