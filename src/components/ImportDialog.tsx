@@ -1,9 +1,26 @@
 import { useMemo, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
-import { Dialog, DialogHeader, DialogPopup } from './ui/dialog';
-import { Button } from './ui/button';
+import { Dialog, DialogHeader, DialogPopup } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { applyImport, parseImportText, type ImportResult } from '@/lib/transfer';
 import { cn } from '@/lib/cn';
+
+function getImportStatus(
+  errorMsg: string,
+  parsed: ReturnType<typeof parseImportText> | null,
+): { toneClass: string; text: string } {
+  if (errorMsg) return { toneClass: 'text-danger', text: errorMsg };
+  if (!parsed) return { toneClass: 'text-ink3', text: '等待选择文件或粘贴 JSON…' };
+  if (!parsed.ok) return { toneClass: 'text-danger', text: parsed.error };
+
+  const { topCount, subCount, itemCount, favCount, skipped } = parsed.stats;
+  const favText = favCount ? ` · ${favCount} 条星标` : '';
+  const skipText = skipped ? `（已跳过 ${skipped} 条无效链接）` : '';
+  return {
+    toneClass: 'text-accent',
+    text: `已识别：${topCount} 个一级分组 · ${subCount} 个子分组 · ${itemCount} 条书签${favText}${skipText}`,
+  };
+}
 
 export function ImportDialog({
   open,
@@ -89,26 +106,10 @@ export function ImportDialog({
             className="w-full h-[188px] p-3 border border-line2 bg-background font-mono text-xs leading-relaxed text-ink resize-y focus:outline-none focus:bg-surface focus:border-accent-line focus:shadow-[0_0_0_2px_var(--blue-soft)]"
           />
 
-          <div
-            className={cn(
-              'text-xs leading-relaxed',
-              errorMsg || (parsed && !parsed.ok)
-                ? 'text-danger'
-                : parsed?.ok
-                  ? 'text-accent'
-                  : 'text-ink3',
-            )}
-          >
-            {errorMsg
-              ? errorMsg
-              : !parsed
-                ? '等待选择文件或粘贴 JSON…'
-                : parsed.ok
-                  ? `已识别：${parsed.stats.topCount} 个一级分组 · ${parsed.stats.subCount} 个子分组 · ${parsed.stats.itemCount} 条书签${
-                      parsed.stats.favCount ? ` · ${parsed.stats.favCount} 条星标` : ''
-                    }${parsed.stats.skipped ? `（已跳过 ${parsed.stats.skipped} 条无效链接）` : ''}`
-                  : parsed.error}
-          </div>
+          {(() => {
+            const status = getImportStatus(errorMsg, parsed);
+            return <div className={cn('text-xs leading-relaxed', status.toneClass)}>{status.text}</div>;
+          })()}
 
           <div className="space-y-2 pt-1">
             <label className="flex items-center gap-2 text-[12.5px] text-ink2 cursor-pointer select-none">

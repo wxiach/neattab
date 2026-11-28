@@ -1,5 +1,5 @@
 import { READING_FOLDER_RE } from './storage.ts';
-import type { ClassifierFolder, PageKind, UrlInfo } from './types.ts';
+import type { FlatFolder, PageKind, UrlInfo } from './types.ts';
 
 const MULTI_TLD = new Set([
   'com.cn',
@@ -225,8 +225,8 @@ export function cleanTitle(rawTitle: string, urlInfo?: UrlInfo | null, pageKind?
   return base;
 }
 
-export function buildFolders(rootNode: chrome.bookmarks.BookmarkTreeNode): ClassifierFolder[] {
-  const list: ClassifierFolder[] = [
+export function buildFolders(rootNode: chrome.bookmarks.BookmarkTreeNode): FlatFolder[] {
+  const list: FlatFolder[] = [
     {
       id: rootNode.id,
       title: (rootNode.title || '收藏夹栏').trim(),
@@ -259,6 +259,6 @@ export function buildFolders(rootNode: chrome.bookmarks.BookmarkTreeNode): Class
   return list;
 }
 
-export function findReadingFolder(folders: ClassifierFolder[]): ClassifierFolder | null {
+export function findReadingFolder(folders: FlatFolder[]): FlatFolder | null {
   return folders.find((f) => !f.isRoot && READING_FOLDER_RE.test(f.title)) || null;
 }

@@ -19,6 +19,10 @@ import {
   scanDuplicateBookmarks,
 } from '../src/lib/dedup.ts';
 import {
+  applyFolderAudit,
+  collectScopeItems,
+} from '../src/lib/batchApply.ts';
+import {
   applyImport,
   buildExportData,
   parseImportText,
@@ -71,6 +75,14 @@ function createMockChrome(initialRoot: Node) {
     api: {
       bookmarks: {
         getTree: async () => [structuredClone(tree)],
+        get: async (id: string) => {
+          const hit = findById(tree, id);
+          return hit ? [structuredClone(hit)] : [];
+        },
+        getSubTree: async (id: string) => {
+          const hit = findById(tree, id);
+          return hit ? [structuredClone(hit)] : [];
+        },
         create: async (details: chrome.bookmarks.BookmarkCreateArg) => {
           const parent = findById(tree, details.parentId || '1');
           if (!parent) throw new Error('parent not found');
@@ -217,6 +229,14 @@ function createRootCopyMock(initialRoot: Node) {
     api: {
       bookmarks: {
         getTree: async () => [structuredClone(tree)],
+        get: async (id: string) => {
+          const hit = findById(tree, id);
+          return hit ? [structuredClone(hit)] : [];
+        },
+        getSubTree: async (id: string) => {
+          const hit = findById(tree, id);
+          return hit ? [structuredClone(hit)] : [];
+        },
         create: async (details: chrome.bookmarks.BookmarkCreateArg) => {
           const parent = findById(tree, details.parentId || '1');
           if (!parent) throw new Error('parent not found');
@@ -252,6 +272,10 @@ function createRootCopyMock(initialRoot: Node) {
           return structuredClone(hit.node);
         },
         remove: async (id: string) => {
+          const hit = findParentAndIdx(tree, id);
+          if (hit) hit.parent.children!.splice(hit.idx, 1);
+        },
+        removeTree: async (id: string) => {
           const hit = findParentAndIdx(tree, id);
           if (hit) hit.parent.children!.splice(hit.idx, 1);
         },
@@ -362,4 +386,75 @@ assert.equal(scan2.groupCount, 0);
 assert.equal(scan2.extraCount, 0);
 
 console.log('PASS dedup scan, favorite preservation, restore_favorite & delete cleanup');
+
+// 5. Batch organize scope isolation & safe folder audit tests
+const batchSeedRoot: Node = {
+  id: '1',
+  title: '收藏夹栏',
+  children: [
+    // Root favorite copy of grouped bookmark -> MUST be skipped in __all__
+    { id: 'rf1', parentId: '1', title: 'Grouped Fav Copy', url: 'https://grouped.example/', dateAdded: 500 },
+    // Pure ungrouped loose bookmark -> MUST be included
+    { id: 'rl1', parentId: '1', title: 'Pure Loose', url: 'https://pure-loose.example/', dateAdded: 100 },
+    {
+      id: 'dirA',
+      parentId: '1',
+      title: '开发',
+      children: [
+        { id: 'bm1', parentId: 'dirA', title: 'Grouped Fav Original', url: 'https://grouped.example/', dateAdded: 200 },
+      ],
+    },
+    {
+      id: 'dirB',
+      parentId: '1',
+      title: '零散开发',
+      children: [
+        { id: 'bm2', parentId: 'dirB', title: 'Tool X', url: 'https://tool-x.example/', dateAdded: 300 },
+      ],
+    },
+    {
+      id: 'dirEmpty',
+      parentId: '1',
+      title: '空目录',
+      children: [],
+    },
+  ],
+};
+
+const batchBuilt = buildRootTree(batchSeedRoot);
+const batchScopes = collectScopeItems(batchBuilt.tops, batchBuilt.loose, '1', '__all__');
+const allScope = batchScopes.find((s) => s.id === '__all__')!;
+const favScope = batchScopes.find((s) => s.id === '__favorites__')!;
+
+// Root favorite copy ('rf1') must never appear in AI organize scope
+assert.equal(allScope.items.some((it) => it.id === 'rf1'), false);
+assert.equal(allScope.items.some((it) => it.id === 'rl1'), true);
+assert.equal(allScope.items.some((it) => it.id === 'bm1'), true);
+assert.equal(favScope.items.some((it) => it.id === 'rf1'), false);
+assert.equal(favScope.items.some((it) => it.id === 'bm1'), true);
+
+const batchMock = createRootCopyMock(batchSeedRoot);
+(globalThis as unknown as { chrome: unknown }).chrome = batchMock.api;
+
+const auditApplied = await applyFolderAudit(
+  '1',
+  [
+    { uid: '1', type: 'merge', sourceId: 'dirB', targetId: 'dirA', reason: '合并零散目录' },
+    { uid: '2', type: 'delete_empty', folderId: 'dirEmpty', reason: '清理空目录' },
+    // Safety check: non-empty dirA must NOT be deleted even if flagged delete_empty
+    { uid: '3', type: 'delete_empty', folderId: 'dirA', reason: '误报测试' },
+  ],
+  [],
+  true,
+);
+assert.equal(auditApplied, 2);
+
+const batchRootAfter = batchMock.getRoot();
+const dirAAfter = batchRootAfter.children!.find((c) => c.id === 'dirA')!;
+assert.equal(Boolean(dirAAfter), true);
+assert.equal(dirAAfter.children!.some((c) => c.id === 'bm2'), true);
+assert.equal(batchRootAfter.children!.some((c) => c.id === 'dirB'), false);
+assert.equal(batchRootAfter.children!.some((c) => c.id === 'dirEmpty'), false);
+
+console.log('PASS batchApply scope isolation (skip root fav copy) & safe folder audit');
 console.log('ALL TESTS PASSED');

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Segmented } from './ui/segmented';
-import { NativeSelect } from './ui/select';
-import { Switch } from './ui/switch';
-import { FontPicker } from './FontPicker';
-import { ImportDialog } from './ImportDialog';
-import { DedupDialog } from './DedupDialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
+import { NativeSelect } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { FontPicker } from '@/components/FontPicker';
+import { ImportDialog } from '@/components/ImportDialog';
+import { DedupDialog } from '@/components/DedupDialog';
 import { DEEPSEEK_MODELS, requestDeepSeekPermission, testDeepSeekConnection } from '@/lib/ai';
 import { getRootOptions, type RootOption } from '@/lib/bookmarks';
 import { getExtensionVersion } from '@/lib/storage';
@@ -22,17 +22,7 @@ const TAB_ITEMS: ReadonlyArray<{ id: SettingsTab; label: string }> = [
   { id: 'general', label: '常规' },
   { id: 'data', label: '整理与备份' },
   { id: 'ai', label: '模型配置' },
-  { id: 'about', label: '关于与权限' },
-];
-
-const PERMISSIONS_LIST: ReadonlyArray<{ key: string; desc: string }> = [
-  { key: 'bookmarks', desc: '读写浏览器收藏夹（仅在编辑、拖拽、整理、去重或收藏时写入）' },
-  { key: 'storage', desc: '保存本地设置与模型配置' },
-  { key: 'favicon', desc: '读取浏览器本地站点图标缓存' },
-  { key: 'activeTab', desc: '点击工具栏图标时读取当前页标题与网址' },
-  { key: 'scripting', desc: '启用 AI 时提取当前页简介与正文前 400 字摘要辅助分类（不读输入框）' },
-  { key: 'fontSettings', desc: '列出本机已安装的系统字体' },
-  { key: 'api.deepseek.com', desc: '可选权限：仅在启用 AI 助手时单独申请并访问' },
+  { id: 'about', label: '关于' },
 ];
 
 export function SettingsContent({
@@ -95,26 +85,29 @@ export function SettingsContent({
   const handleTestAi = async () => {
     const trimmed = apiKeyDraft.trim();
     if (!trimmed) {
-      setTestResult({ ok: false, text: '请先输入 DeepSeek API Key' });
+      setTestResult({ ok: false, text: '请先输入 API Key' });
       return;
     }
+
     setTesting(true);
     setTestResult(null);
     const granted = await requestDeepSeekPermission();
     if (!granted) {
       setTesting(false);
-      setTestResult({ ok: false, text: '未授予 api.deepseek.com 访问权限' });
+      setTestResult({ ok: false, text: '未授予模型接口访问权限' });
       return;
     }
+
     const aiCfg: AiConfig = { ...prefs.ai, apiKey: trimmed };
     if (trimmed !== prefs.ai.apiKey) {
       onPatch({ ai: aiCfg }, '已保存');
     }
+
     const res = await testDeepSeekConnection(aiCfg);
     setTesting(false);
     if (res.ok) {
       if (!prefs.ai.enabled) {
-        onPatch({ ai: { ...aiCfg, enabled: true } }, '已启用 DeepSeek');
+        onPatch({ ai: { ...aiCfg, enabled: true } }, '已启用 AI 模型');
         setTestResult({ ok: true, text: `连接成功 · ${res.latencyMs}ms（已自动启用）` });
       } else {
         setTestResult({ ok: true, text: `连接成功 · ${res.latencyMs}ms` });
@@ -251,7 +244,7 @@ export function SettingsContent({
           <div className="flex items-center gap-3">
             <Switch
               checked={prefs.ai.enabled}
-              onCheckedChange={(enabled) => updateAi({ enabled }, enabled ? '已启用 AI 助手' : '已关闭 AI 助手')}
+              onCheckedChange={(enabled) => updateAi({ enabled }, enabled ? '已启用 AI 模型' : '已关闭 AI 模型')}
               aria-label="启用 AI 智能分类与命名"
             />
             <span className="text-[13px] font-medium text-ink">
@@ -345,27 +338,8 @@ export function SettingsContent({
         <div className={labelTextCls}>隐私说明</div>
         <div className="min-w-0">
           <p className="m-0 text-[13px] leading-[1.68] text-ink">
-            默认完全在本地运行，不读取浏览历史，无任何统计追踪。仅当你主动开启 AI 助手时，才向对应模型接口发送当前书签标题、网址与目录名。
+            默认完全在本地运行，不读取浏览历史，无任何统计追踪。仅在你主动启用 AI 模型时，才向对应接口发送书签信息与当前页摘要。
           </p>
-        </div>
-      </section>
-
-      <section className={rowCls}>
-        <div className={labelTextCls}>扩展权限</div>
-        <div className="min-w-0">
-          <ul className="list-none m-0 p-0 flex flex-col gap-2.5">
-            {PERMISSIONS_LIST.map((p) => (
-              <li
-                key={p.key}
-                className="grid grid-cols-[124px_minmax(0,1fr)] max-sm:grid-cols-1 items-baseline gap-x-2.5 gap-y-1 text-[12.5px] leading-[1.6] text-ink2"
-              >
-                <code className="justify-self-start inline-flex items-center h-5 px-1.5 font-mono text-[11px] font-medium leading-none border border-line2 bg-background shadow-[var(--badge-shadow)] text-ink">
-                  {p.key}
-                </code>
-                <span>{p.desc}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
     </>
@@ -424,7 +398,7 @@ export function SettingsContent({
             <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderAi()}</div>
           </div>
           <div>
-            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">关于与权限</h2>
+            <h2 className="m-0 mb-2 ml-0.5 text-xs font-semibold text-ink3 tracking-[0.02em]">关于</h2>
             <div className="bg-surface border border-line shadow-[var(--shadow-card)]">{renderAbout()}</div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import type { PageContext } from './pageContext.ts';
-import type { AiConfig, ClassifierFolder, PageKind } from './types.ts';
+import type { AiConfig, FlatFolder, PageKind } from './types.ts';
 
 export const DEEPSEEK_ORIGIN = 'https://api.deepseek.com/*';
 export const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions';
@@ -184,7 +184,7 @@ export async function suggestBookmarkWithDeepSeek(params: {
   url: string;
   rawTitle: string;
   pageKind: PageKind;
-  folders: ClassifierFolder[];
+  folders: FlatFolder[];
   pageContext?: PageContext;
   signal?: AbortSignal;
 }): Promise<BookmarkAiSuggestion> {

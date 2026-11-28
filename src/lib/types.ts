@@ -45,7 +45,7 @@ export interface FolderNode {
   totalCount: number;
 }
 
-export interface ClassifierFolder {
+export interface FlatFolder {
   id: string;
   title: string;
   parentTitle?: string;

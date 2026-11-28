@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, RefreshCw, Star, Trash2 } from 'lucide-react';
-import { Dialog, DialogHeader, DialogPopup } from './ui/dialog';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Checkbox } from './ui/checkbox';
-import { Favicon } from './Favicon';
+import { Dialog, DialogHeader, DialogPopup } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Favicon } from '@/components/Favicon';
 import { findNode } from '@/lib/bookmarks';
 import {
   applyDuplicateCleanup,
@@ -36,6 +36,12 @@ function formatDate(ts: number): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function getEntryRowClass(isKeep: boolean, selected: boolean): string {
+  if (isKeep) return 'bg-surface';
+  if (selected) return 'bg-background';
+  return 'bg-background opacity-60';
 }
 
 function buildInitialGroupStates(groups: DuplicateGroup[]): GroupState[] {
@@ -367,7 +373,7 @@ export function DedupDialog({
                             key={entry.id}
                             className={cn(
                               'flex items-center gap-2.5 px-3 py-2 text-[12.5px]',
-                              isKeep ? 'bg-surface' : choice?.selected ? 'bg-background' : 'bg-background opacity-60',
+                              getEntryRowClass(isKeep, Boolean(choice?.selected)),
                             )}
                           >
                             {isKeep ? (
