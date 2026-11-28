@@ -26,6 +26,7 @@ neattab/
 │   │   ├── storage.ts           # chrome.storage.local 读写与主题/字体应用
 │   │   ├── bookmarks.ts         # 目录树构建、阅读清单分段与拖拽移动
 │   │   ├── favSync.ts           # 基于收藏夹栏根目录书签副本的跨设备「我的收藏」机制
+│   │   ├── dedup.ts             # 重复书签扫描与清理（保留正常收藏副本，支持移回收藏或删除）
 │   │   ├── classifier.ts        # 本地 TF-IDF 朴素贝叶斯分类器与标题精简
 │   │   ├── transfer.ts          # 无损保序书签 JSON 导入导出
 │   │   ├── pageContext.ts       # 通过 activeTab + scripting 提取当前页摘要（meta/h1/正文片段）
@@ -35,6 +36,7 @@ neattab/
 │   │   ├── Favicon.tsx
 │   │   ├── FontPicker.tsx       # 32px 固定行高虚拟滚动系统字体选择器
 │   │   ├── ImportDialog.tsx
+│   │   ├── DedupDialog.tsx      # 重复书签清理弹窗（支持删除多余副本或移回我的收藏）
 │   │   ├── SettingsContent.tsx  # 4 分类系统设置（外观与常规 / AI 助手 / 数据与备份 / 关于与权限）
 │   │   └── BatchRenameDialog.tsx# AI 智能整理弹窗（书签整理 + 全局目录体检，执行前自动备份）
 │   └── pages/

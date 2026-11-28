@@ -37,7 +37,7 @@ function findRootCopies(
 }
 
 /** 计算新收藏副本在根目录的插入位置：紧跟现有散装书签末尾、位于所有子文件夹之前。 */
-function rootCopyInsertIndex(rootNode: chrome.bookmarks.BookmarkTreeNode): number {
+export function rootCopyInsertIndex(rootNode: chrome.bookmarks.BookmarkTreeNode): number {
   const children = rootNode.children || [];
   const firstFolderIdx = children.findIndex((c) => !c.url);
   return firstFolderIdx >= 0 ? firstFolderIdx : children.length;

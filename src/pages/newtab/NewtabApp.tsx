@@ -1607,6 +1607,7 @@ export function NewtabApp() {
               loadBookmarks();
               flash(res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
             }}
+            onBookmarksChanged={() => loadBookmarks()}
             onOpenBatchRename={() => {
               setSettingsOpen(false);
               setBatchOpen(true);

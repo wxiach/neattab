@@ -9,6 +9,7 @@ import { NativeSelect } from './ui/select';
 import { Switch } from './ui/switch';
 import { FontPicker } from './FontPicker';
 import { ImportDialog } from './ImportDialog';
+import { DedupDialog } from './DedupDialog';
 import { DEEPSEEK_MODELS, requestDeepSeekPermission, testDeepSeekConnection } from '@/lib/ai';
 import { getRootOptions, type RootOption } from '@/lib/bookmarks';
 import { exportRoot, type ImportResult } from '@/lib/transfer';
@@ -38,6 +39,7 @@ export function SettingsContent({
   prefs,
   onPatch,
   onImportDone,
+  onBookmarksChanged,
   onOpenBatchRename,
   onFlash,
   layout = 'modal',
@@ -46,6 +48,7 @@ export function SettingsContent({
   prefs: Prefs;
   onPatch: (patch: Partial<Prefs>, msg?: string) => void;
   onImportDone: (res: ImportResult) => void;
+  onBookmarksChanged?: () => void;
   onOpenBatchRename?: () => void;
   onFlash: (msg?: string) => void;
   layout?: 'modal' | 'page';
@@ -54,6 +57,7 @@ export function SettingsContent({
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [roots, setRoots] = useState<RootOption[]>([]);
   const [importOpen, setImportOpen] = useState(false);
+  const [dedupOpen, setDedupOpen] = useState(false);
 
   // DeepSeek 配置本地编辑态
   const [showKey, setShowKey] = useState(false);
@@ -329,6 +333,18 @@ export function SettingsContent({
           </p>
         </div>
       </section>
+
+      <section className={rowCls}>
+        <div className={labelCls}>重复书签</div>
+        <div className="min-w-0">
+          <Button variant="outline" onClick={() => setDedupOpen(true)}>
+            扫描重复书签…
+          </Button>
+          <p className={hintCls}>
+            检查同一网址的多余副本（根目录的收藏副本自动保留，不计为重复），支持逐项删除或移回「我的收藏」。
+          </p>
+        </div>
+      </section>
     </>
   );
 
@@ -429,6 +445,20 @@ export function SettingsContent({
         rootId={prefs.rootId}
         favorites={prefs.favorites}
         onDone={onImportDone}
+      />
+
+      <DedupDialog
+        open={dedupOpen}
+        onOpenChange={setDedupOpen}
+        rootId={prefs.rootId}
+        favorites={prefs.favorites}
+        onDone={(res) => {
+          onBookmarksChanged?.();
+          const parts: string[] = [];
+          if (res.movedToFav > 0) parts.push(`已移回 ${res.movedToFav} 条到我的收藏`);
+          if (res.deleted > 0) parts.push(`已删除 ${res.deleted} 条重复书签`);
+          if (parts.length > 0) onFlash(parts.join('，'));
+        }}
       />
     </>
   );

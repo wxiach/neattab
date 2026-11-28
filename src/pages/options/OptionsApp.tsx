@@ -138,6 +138,7 @@ export function OptionsApp() {
             loadTree(prefs.rootId);
             flash(res.mode === 'replace' ? '已备份并替换导入' : '已追加导入');
           }}
+          onBookmarksChanged={() => loadTree(prefs.rootId)}
           onOpenBatchRename={() => {
             loadTree(prefs.rootId);
             setBatchOpen(true);

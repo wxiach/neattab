@@ -18,6 +18,7 @@ import {
   type FolderAuditSuggestion,
 } from '@/lib/ai';
 import { isInsideFolder } from '@/lib/bookmarks';
+import { collectGroupedUrls, syncEditedBookmarkCopies } from '@/lib/favSync';
 import { exportRoot } from '@/lib/transfer';
 import type { AiConfig, BookmarkItem, FolderNode } from '@/lib/types';
 import { cn } from '@/lib/cn';
@@ -95,19 +96,25 @@ function collectScopeItems(
     for (const c of folder.children) walk(c, path, out);
   };
 
-  const allItems: BatchRenameInput[] = [];
-  for (const it of loose) {
-    allItems.push({ id: it.id, title: it.title, url: it.url, folderId: rootId, folderPath: '根目录' });
-  }
-  for (const t of tops) walk(t, '', allItems);
+  const groupedItems: BatchRenameInput[] = [];
+  for (const t of tops) walk(t, '', groupedItems);
 
-  const favItems: BatchRenameInput[] = loose.map((it) => ({
-    id: it.id,
-    title: it.title,
-    url: it.url,
-    folderId: rootId,
-    folderPath: '我的收藏',
-  }));
+  const groupedUrlSet = collectGroupedUrls(tops);
+  const looseUrlSet = new Set(loose.map((it) => it.url));
+
+  // 仅存在于根目录（非分组收藏副本）的纯未分组书签
+  const pureLooseItems: BatchRenameInput[] = loose
+    .filter((it) => !groupedUrlSet.has(it.url))
+    .map((it) => ({ id: it.id, title: it.title, url: it.url, folderId: rootId, folderPath: '未分组' }));
+
+  // 全部书签：跳过根目录中的收藏副本，避免被 AI 重复分类并移走导致丢失收藏
+  const allItems: BatchRenameInput[] = [...pureLooseItems, ...groupedItems];
+
+  // 我的收藏：对对应的实际分组原件（以及纯未分组书签）执行整理，绝不移动收藏副本
+  const favItems: BatchRenameInput[] = [
+    ...pureLooseItems,
+    ...groupedItems.filter((it) => looseUrlSet.has(it.url)),
+  ];
   if (favItems.length) {
     options.push({ id: '__favorites__', label: `我的收藏（${favItems.length} 条）`, items: favItems });
   }
@@ -311,6 +318,7 @@ export function BatchRenameDialog({
         const nextTitle = row.draftTitle.trim();
         if (nextTitle !== row.originalTitle) {
           await chrome.bookmarks.update(row.id, { title: nextTitle });
+          await syncEditedBookmarkCopies(rootId, row.id, row.url, { title: nextTitle });
         }
         if (includeCategory && row.draftFolderId && row.draftFolderId !== row.originalFolderId) {
           await chrome.bookmarks.move(row.id, { parentId: row.draftFolderId });

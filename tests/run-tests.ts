@@ -20,6 +20,10 @@ import {
   syncEditedBookmarkCopies,
 } from '../src/lib/favSync.ts';
 import {
+  applyDuplicateCleanup,
+  scanDuplicateBookmarks,
+} from '../src/lib/dedup.ts';
+import {
   applyImport,
   buildExportData,
   parseImportText,
@@ -114,6 +118,13 @@ function createMockChrome(initialRoot: Node) {
           parent.children.push(node);
           return structuredClone(node);
         },
+        update: async (id: string, changes: { title?: string; url?: string }) => {
+          const node = findById(tree, id);
+          if (!node) throw new Error('not found');
+          if (changes.title !== undefined) node.title = changes.title;
+          if (changes.url !== undefined) node.url = changes.url;
+          return structuredClone(node);
+        },
         move: async (id: string, dest: { parentId?: string; index?: number }) => {
           const hit = findParentAndIdx(tree, id);
           if (!hit) throw new Error('not found');
@@ -122,15 +133,9 @@ function createMockChrome(initialRoot: Node) {
           if (!target) throw new Error('target not found');
           target.children = target.children || [];
           hit.node.parentId = target.id;
-          target.children.push(hit.node);
+          const idx = typeof dest.index === 'number' ? Math.min(dest.index, target.children.length) : target.children.length;
+          target.children.splice(idx, 0, hit.node);
           return structuredClone(hit.node);
-        },
-        update: async (id: string, changes: { title?: string; url?: string }) => {
-          const node = findById(tree, id);
-          if (!node) throw new Error('not found');
-          if (changes.title !== undefined) node.title = changes.title;
-          if (changes.url !== undefined) node.url = changes.url;
-          return structuredClone(node);
         },
         remove: async (id: string) => {
           const hit = findParentAndIdx(tree, id);
@@ -267,6 +272,18 @@ function createRootCopyMock(initialRoot: Node) {
           if (changes.url !== undefined) node.url = changes.url;
           return structuredClone(node);
         },
+        move: async (id: string, dest: { parentId?: string; index?: number }) => {
+          const hit = findParentAndIdx(tree, id);
+          if (!hit) throw new Error('not found');
+          hit.parent.children!.splice(hit.idx, 1);
+          const target = findById(tree, dest.parentId || hit.parent.id);
+          if (!target) throw new Error('target not found');
+          target.children = target.children || [];
+          hit.node.parentId = target.id;
+          const idx = typeof dest.index === 'number' ? Math.min(dest.index, target.children.length) : target.children.length;
+          target.children.splice(idx, 0, hit.node);
+          return structuredClone(hit.node);
+        },
         remove: async (id: string) => {
           const hit = findParentAndIdx(tree, id);
           if (hit) hit.parent.children!.splice(hit.idx, 1);
@@ -305,4 +322,77 @@ assert.equal(migrated, true);
 assert.equal(favMock.getRoot().children!.some((c) => c.url === 'https://coss.com/ui/v2'), true);
 
 console.log('PASS favSync root-copy add/remove, dedup, edit sync & legacy migration');
+
+// 4. Duplicate bookmark scanning & cleanup (preserves normal favorite copies, restores misplaced favorites)
+const dedupSeedRoot: Node = {
+  id: '1',
+  title: '收藏夹栏',
+  children: [
+    // Normal favorite copy (1 in root + 1 in folder) -> MUST NOT be flagged
+    { id: 'r1', parentId: '1', title: 'Normal Fav', url: 'https://normal-fav.example/', dateAdded: 500 },
+    // Root duplicate (2 in root)
+    { id: 'r2', parentId: '1', title: 'Root Dup Older', url: 'https://root-dup.example/', dateAdded: 100 },
+    { id: 'r3', parentId: '1', title: 'Root Dup Newer', url: 'https://root-dup.example/', dateAdded: 600 },
+    // Already in root + 3 copies in subfolders
+    { id: 'r4', parentId: '1', title: 'Triple Fav', url: 'https://triple.example/', dateAdded: 700 },
+    {
+      id: 'f1',
+      parentId: '1',
+      title: '开发',
+      children: [
+        { id: 'b1', parentId: 'f1', title: 'Normal Fav', url: 'https://normal-fav.example/', dateAdded: 200 },
+        { id: 'b2', parentId: 'f1', title: 'Lost Fav Original', url: 'https://lost-fav.example/', dateAdded: 150 },
+        { id: 'b3', parentId: 'f1', title: 'Triple 1', url: 'https://triple.example/', dateAdded: 120 },
+      ],
+    },
+    {
+      id: 'f2',
+      parentId: '1',
+      title: '工具',
+      children: [
+        { id: 'b4', parentId: 'f2', title: 'Lost Fav Misplaced', url: 'https://lost-fav.example/', dateAdded: 800 },
+        { id: 'b5', parentId: 'f2', title: 'Triple 2', url: 'https://triple.example/', dateAdded: 300 },
+        { id: 'b6', parentId: 'f2', title: 'Triple 3', url: 'https://triple.example/', dateAdded: 400 },
+      ],
+    },
+  ],
+};
+
+const scan1 = scanDuplicateBookmarks(dedupSeedRoot);
+assert.equal(scan1.groupCount, 3);
+assert.equal(scan1.extraCount, 4);
+assert.equal(scan1.restorableGroupCount, 1);
+assert.equal(scan1.groups.some((g) => g.url === 'https://normal-fav.example/'), false);
+
+// Restorable folder group comes first and keeps earliest dateAdded ('b2')
+const lostGroup = scan1.groups[0];
+assert.equal(lostGroup.url, 'https://lost-fav.example/');
+assert.equal(lostGroup.scope, 'folder');
+assert.equal(lostGroup.inRoot, false);
+assert.equal(lostGroup.defaultKeepId, 'b2');
+
+const dedupMock = createRootCopyMock(dedupSeedRoot);
+(globalThis as unknown as { chrome: unknown }).chrome = dedupMock.api;
+
+const cleanupRes = await applyDuplicateCleanup('1', [
+  { id: 'b4', url: 'https://lost-fav.example/', action: 'restore_favorite' },
+  { id: 'b5', url: 'https://triple.example/', action: 'restore_favorite' }, // already in root -> falls back to delete
+  { id: 'b6', url: 'https://triple.example/', action: 'delete' },
+  { id: 'r3', url: 'https://root-dup.example/', action: 'delete' },
+]);
+assert.equal(cleanupRes.movedToFav, 1);
+assert.equal(cleanupRes.deleted, 3);
+
+// Restored favorite ('b4') is now in root before folders
+const dedupRootAfter = dedupMock.getRoot();
+const restoredIdx = dedupRootAfter.children!.findIndex((c) => c.id === 'b4');
+const firstDirIdx = dedupRootAfter.children!.findIndex((c) => !c.url);
+assert.equal(restoredIdx >= 0 && restoredIdx < firstDirIdx, true);
+
+// Zero duplicates remain after cleanup
+const scan2 = scanDuplicateBookmarks(dedupRootAfter);
+assert.equal(scan2.groupCount, 0);
+assert.equal(scan2.extraCount, 0);
+
+console.log('PASS dedup scan, favorite preservation, restore_favorite & delete cleanup');
 console.log('ALL TESTS PASSED');
