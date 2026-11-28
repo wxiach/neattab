@@ -9,7 +9,6 @@ import {
   applyTheme,
   DEFAULT_AI,
   DEFAULTS,
-  getExtensionVersion,
   hasExt,
   loadPrefs,
   savePrefs,
@@ -87,8 +86,6 @@ export function OptionsApp() {
     handlePatch(patch, '已恢复默认设置');
   };
 
-  const version = getExtensionVersion();
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-ink">
       <header className="sticky top-0 z-10 h-[62px] topbar-glass border-b border-line">
@@ -103,7 +100,6 @@ export function OptionsApp() {
           <span className="text-[13px] text-ink3">系统设置</span>
 
           <div className="ml-auto flex items-center gap-3">
-            {version && <span className="font-mono text-[11px] text-ink3">{version}</span>}
             <a
               href="newtab.html"
               onClick={(e) => {

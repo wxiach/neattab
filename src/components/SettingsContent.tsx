@@ -11,6 +11,7 @@ import { ImportDialog } from './ImportDialog';
 import { DedupDialog } from './DedupDialog';
 import { DEEPSEEK_MODELS, requestDeepSeekPermission, testDeepSeekConnection } from '@/lib/ai';
 import { getRootOptions, type RootOption } from '@/lib/bookmarks';
+import { getExtensionVersion } from '@/lib/storage';
 import { exportRoot, type ImportResult } from '@/lib/transfer';
 import type { AiConfig, OpenMode, Prefs, ThemeMode } from '@/lib/types';
 import { cn } from '@/lib/cn';
@@ -326,8 +327,20 @@ export function SettingsContent({
     </>
   );
 
+  const version = getExtensionVersion();
+
   const renderAbout = () => (
     <>
+      {version && (
+        <section className={rowCls}>
+          <div className={labelTextCls}>当前版本</div>
+          <div className="min-w-0 flex items-center gap-2 text-[13px] text-ink">
+            <span>NeatTab</span>
+            <span className="font-mono text-ink2">{version}</span>
+          </div>
+        </section>
+      )}
+
       <section className={rowCls}>
         <div className={labelTextCls}>隐私说明</div>
         <div className="min-w-0">

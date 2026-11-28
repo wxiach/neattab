@@ -47,7 +47,6 @@ import {
   applyTheme,
   DEFAULT_AI,
   DEFAULTS,
-  getExtensionVersion,
   hasExt,
   loadPrefs,
   READING_FOLDER_RE,
@@ -1330,8 +1329,6 @@ export function NewtabApp() {
     </div>
   );
 
-  const version = getExtensionVersion();
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-ink">
       {/* 顶栏 */}
@@ -1589,10 +1586,7 @@ export function NewtabApp() {
       {/* 系统设置弹窗 */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogPopup className="max-w-[var(--dlg-settings-w)] h-[min(540px,calc(100vh-56px))] flex flex-col overflow-hidden">
-          <DialogHeader
-            title="系统设置"
-            extra={version ? <span className="font-mono text-[11.5px] text-ink3">{version}</span> : undefined}
-          />
+          <DialogHeader title="系统设置" />
           <SettingsContent
             key={settingsTab}
             layout="modal"
