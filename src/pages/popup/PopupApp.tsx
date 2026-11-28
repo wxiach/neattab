@@ -23,7 +23,6 @@ import {
 } from '@/lib/favSync';
 import {
   buildFolders,
-  cleanTitle,
   detectPageKind,
   findReadingFolder,
   parseUrl,
@@ -33,13 +32,6 @@ import type { FlatFolder, PageKind, Prefs, UrlInfo } from '@/lib/types';
 
 const NEW_PREFIX = '__new__:';
 const READING_DEFAULT_NAME = '阅读清单';
-
-function getTitleToggleLabel(isUsingClean: boolean, hasAiTitle: boolean): string {
-  if (isUsingClean) {
-    return hasAiTitle ? 'AI 精简 · 还原原标题' : '已精简 · 还原';
-  }
-  return hasAiTitle ? '使用 AI 名称' : '使用精简名';
-}
 
 function computeDefaultSelection(
   folderList: FlatFolder[],
@@ -107,7 +99,6 @@ export function PopupApp() {
   const [pendingFolders, setPendingFolders] = useState<PendingFolder[]>([]);
 
   const [rawTitle, setRawTitle] = useState('');
-  const [cleanName, setCleanName] = useState('');
   const [aiSuggestedTitle, setAiSuggestedTitle] = useState('');
   const [title, setTitle] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('');
@@ -338,11 +329,9 @@ export function PopupApp() {
 
       if (hitExisting) {
         const origT = (hitExisting.title || activeTab.title || uInfo.host).trim();
-        const cleanedT = cleanTitle(origT, uInfo, kind);
         const curF = hitExisting.parentId ? folderMap.get(hitExisting.parentId) : undefined;
 
         setRawTitle(origT);
-        setCleanName(cleanedT);
         setTitle(origT);
         setBadgeText('已收藏');
         setBadgeVariant('info');
@@ -353,15 +342,13 @@ export function PopupApp() {
         const def = computeDefaultSelection(folderList, kind, root.id, loadedPrefs.lastFolderId);
         const dedupQuick = def.quick.filter((f, idx, arr) => f && arr.findIndex((x) => x.id === f.id) === idx);
         const origT = (activeTab.title || '').trim() || uInfo.host;
-        const cleanedT = cleanTitle(origT, uInfo, kind);
 
         setPendingFolders(def.pending);
         setSelectedFolder(def.chosenVal);
         setQuickPicks(dedupQuick);
         setOfferReading(def.wantReading);
         setRawTitle(origT);
-        setCleanName(cleanedT);
-        setTitle(cleanedT);
+        setTitle(origT);
         setReasonLine(def.reason);
         setMatchHint(def.hint);
         setBadgeText(def.badge);
@@ -523,9 +510,8 @@ export function PopupApp() {
     return () => document.removeEventListener('keydown', onKeyDown);
   });
 
-  const preferredClean = aiSuggestedTitle || cleanName;
-  const showTitleToggle = Boolean(rawTitle && preferredClean && rawTitle !== preferredClean);
-  const isUsingClean = title.trim() === preferredClean;
+  const showTitleToggle = Boolean(rawTitle && aiSuggestedTitle && rawTitle !== aiSuggestedTitle);
+  const isUsingAiTitle = title.trim() === aiSuggestedTitle;
   const aiEnabled = isAiReady(prefs.ai);
 
   return (
@@ -590,13 +576,13 @@ export function PopupApp() {
                   type="button"
                   onClick={() => {
                     userTouchedTitleRef.current = true;
-                    setTitle(isUsingClean ? rawTitle : preferredClean);
+                    setTitle(isUsingAiTitle ? rawTitle : aiSuggestedTitle);
                     titleInputRef.current?.focus();
                     titleInputRef.current?.select();
                   }}
                   className="p-0 border-0 bg-transparent text-[11px] text-ink3 underline underline-offset-2 decoration-line3 hover:text-accent cursor-pointer"
                 >
-                  {getTitleToggleLabel(isUsingClean, Boolean(aiSuggestedTitle))}
+                  {isUsingAiTitle ? 'AI 精简 · 还原原标题' : '使用 AI 名称'}
                 </button>
               )}
             </div>

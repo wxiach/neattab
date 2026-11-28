@@ -3,7 +3,6 @@ import {
   buildRootTree,
 } from '../src/lib/bookmarks.ts';
 import {
-  cleanTitle,
   detectPageKind,
   parseUrl,
 } from '../src/lib/urlRules.ts';
@@ -28,17 +27,14 @@ import {
   parseImportText,
 } from '../src/lib/transfer.ts';
 
-// 1. URL parsing, page kind detection & title cleanup tests
+// 1. URL parsing & page kind detection tests
 const u1 = parseUrl('https://www.v2ex.com/t/1259639#reply105');
 const u2 = parseUrl('https://www.v2ex.com/');
 assert.equal(detectPageKind(u1).kind, 'content');
 assert.equal(u1.trimHash, '#reply105');
 assert.equal(detectPageKind(u2).kind, 'site');
 assert.equal(u2.trimHash, '');
-
-const gh = parseUrl('https://github.com/wxiach/neattab');
-assert.equal(cleanTitle('GitHub - wxiach/neattab: bookmark new tab', gh, detectPageKind(gh)), 'wxiach/neattab');
-console.log('PASS urlRules parseUrl, detectPageKind & cleanTitle');
+console.log('PASS urlRules parseUrl & detectPageKind');
 
 // 2. Transfer lossless import/export tests with mock chrome.bookmarks
 type Node = chrome.bookmarks.BookmarkTreeNode;
