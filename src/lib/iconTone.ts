@@ -43,6 +43,10 @@ export function classifyIconPixels(data: Uint8ClampedArray): IconTone {
   return avgChroma < 26 ? 'dark-mono' : 'dark-color';
 }
 
+export function getCachedIconTone(cacheKey: string): IconTone | undefined {
+  return toneCache.get(cacheKey);
+}
+
 /** 采样已加载的 favicon 图像并缓存结果；若画布受跨域限制则降级为浅灰底框方案。 */
 export function detectIconTone(img: HTMLImageElement, cacheKey: string): IconTone {
   const cached = toneCache.get(cacheKey);

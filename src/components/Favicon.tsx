@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { faviconSrc } from '@/lib/bookmarks';
-import { detectIconTone, type IconTone } from '@/lib/iconTone';
+import { detectIconTone, getCachedIconTone, type IconTone } from '@/lib/iconTone';
 import { cn } from '@/lib/cn';
 
 export function Favicon({
@@ -13,13 +13,26 @@ export function Favicon({
   className?: string;
 }) {
   const src = faviconSrc(url);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [failed, setFailed] = useState(false);
-  const [tone, setTone] = useState<IconTone>('normal');
+  const [tone, setTone] = useState<IconTone>(() => getCachedIconTone(src) || 'normal');
   const ch = (fallbackText || '?').trim().slice(0, 1).toUpperCase() || '?';
 
   useEffect(() => {
     setFailed(false);
-    setTone('normal');
+    const cached = getCachedIconTone(src);
+    if (cached) {
+      setTone(cached);
+      return;
+    }
+
+    // 浏览器内存缓存命中时，img.complete 可能在挂载时已为 true，补做一次采样
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setTone(detectIconTone(el, src));
+    } else {
+      setTone('normal');
+    }
   }, [src]);
 
   if (!src || failed) {
@@ -46,6 +59,7 @@ export function Favicon({
       )}
     >
       <img
+        ref={imgRef}
         src={src}
         alt=""
         loading="lazy"
